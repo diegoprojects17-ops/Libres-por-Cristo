@@ -1,0 +1,30 @@
+{
+    "al que esta sentado": {
+        "titulo_real": "Al que está sentado",
+        "acordes": "Estrofa // D A D, Bm A D, Bm A D G // A\nCoro // D Bm G A, G A //"
+    },
+    "el gran yo soy": {
+        "titulo_real": "El Gran Yo Soy",
+        "acordes": "Estrofa // F# G#m C# F# //\nCoro // D#m B F# C#"
+    },
+    "santo por siempre": {
+        "titulo_real": "Santo por siempre",
+        "acordes": "Estrofa // F A# F Dm C F //\nPre coro // A# C Dm C A# //\nCoro // A# Dm C Am A Dm, Gm C F //"
+    },
+    "dios de lo imposible": {
+        "titulo_real": "Dios de lo imposible",
+        "acordes": "Estrofa // Cm G# D# A#, Cm G# D# A# //\nCoro // D# A# D# A# G# A# //"
+    },
+    "renuevame (c)": {
+        "titulo_real": "Renuevame (C)",
+        "acordes": "Estrofa //C F G C Am F G//\nCoro// C Am F G//"
+    },
+    "ungeme (c)": {
+        "titulo_real": "Ungeme (C)",
+        "acordes": "EStrofa //C F C F G//\nCoro// C G Am F G//"
+    },
+    "tu fidelidad (c)": {
+        "titulo_real": "tu fidelidad (C)",
+        "acordes": "Estrofa //C Am F G//\nPre Coro//F Am F Dm G//\nCoro//C G Am G F Dm G ( segunda vuelta C)"
+    }
+}
