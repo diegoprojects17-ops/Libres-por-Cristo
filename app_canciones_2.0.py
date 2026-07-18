@@ -20,7 +20,7 @@ if API_KEY_GEMINI != "AQUÍ_PEGA_TU_CLAVE":
 # 2. SISTEMA DE BASE DE DATOS PERMANENTE (JSON)
 ARCHIVO_BD = "cancionero.json"
 
-# Canciones iniciales corregidas (ahora dicen Estrofa)
+# Canciones iniciales
 canciones_defecto = {
     "al que esta sentado": {
         "titulo_real": "Al que está sentado",
@@ -40,7 +40,7 @@ canciones_defecto = {
     }
 }
 
-# Función para cargar canciones del disco duro
+# Función para cargar canciones
 def cargar_cancionero():
     if os.path.exists(ARCHIVO_BD):
         try:
@@ -52,7 +52,7 @@ def cargar_cancionero():
         guardar_cancionero(canciones_defecto)
         return canciones_defecto
 
-# Función para guardar canciones en el disco duro de forma permanente
+# Función para guardar canciones de forma permanente
 def guardar_cancionero(datos):
     with open(ARCHIVO_BD, "w", encoding="utf-8") as f:
         json.dump(datos, f, ensure_ascii=False, indent=4)
@@ -100,10 +100,12 @@ with st.sidebar:
 # ==========================================
 pestana_buscar, pestana_agregar = st.tabs(["🔍 Buscar Canciones", "➕ Agregar Nueva Canción"])
 
-# --- PESTAÑA 1: BUSCADOR ---
+# --- PESTAÑA 1: BUSCADOR, EDICIÓN Y ELIMINACIÓN ---
 with pestana_buscar:
     busqueda = st.text_input("🔍 Busca el nombre de la canción o palabra clave:", "")
     busqueda_limpia = busqueda.lower().strip()
+
+    clave_seleccionada = None
 
     if busqueda_limpia:
         coincidencias = []
@@ -114,19 +116,50 @@ with pestana_buscar:
         if len(coincidencias) == 0:
             st.error("❌ No se encontró ninguna canción con ese nombre.")
         elif len(coincidencias) == 1:
-            cancion = cancionero[coincidencias[0]]
-            st.subheader(f"🎵 {cancion['titulo_real']}")
-            st.code(cancion['acordes'], language="text")
+            clave_seleccionada = coincidencias[0]
         else:
             st.warning("🔍 Encontré varias opciones en tu cuaderno. Elige una:")
-            opciones_pantalla = [cancionero[c]["titulo_real"] for c in coincidencias]
-            seleccion = st.selectbox("Elige la canción:", opciones_pantalla)
+            opciones_pantalla = {cancionero[c]["titulo_real"]: c for c in coincidencias}
+            seleccion = st.selectbox("Elige la canción:", list(opciones_pantalla.keys()))
+            clave_seleccionada = opciones_pantalla[seleccion]
             
-            for clave in coincidencias:
-                if cancionero[clave]["titulo_real"] == seleccion:
-                    st.subheader(f"🎵 {cancionero[clave]['titulo_real']}")
-                    st.code(cancionero[clave]["acordes"], language="text")
-                    break
+        # Si hay una canción seleccionada en la búsqueda, mostramos sus opciones
+        if clave_seleccionada:
+            cancion = cancionero[clave_seleccionada]
+            st.subheader(f"🎵 {cancion['titulo_real']}")
+            
+            # Formulario oculto/desplegable para Editar o Eliminar la canción
+            with st.expander("🛠️ Opciones de edición / eliminar canción"):
+                # Editar acordes
+                nuevos_acordes_editados = st.text_area(
+                    "Editar acordes y estructura:", 
+                    value=cancion['acordes'], 
+                    height=150,
+                    key=f"edit_{clave_seleccionada}"
+                )
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("💾 Guardar Cambios", key=f"btn_save_{clave_seleccionada}"):
+                        cancionero[clave_seleccionada]['acordes'] = nuevos_acordes_editados.strip()
+                        guardar_cancionero(cancionero)
+                        st.success("¡Canción editada correctamente!")
+                        st.rerun()
+                        
+                with col2:
+                    if st.button("🗑️ Eliminar Canción", key=f"btn_del_{clave_seleccionada}"):
+                        # Si estaba en la lista del servicio, la quitamos
+                        if cancion['titulo_real'] in st.session_state.lista_servicio:
+                            st.session_state.lista_servicio.remove(cancion['titulo_real'])
+                        
+                        del cancionero[clave_seleccionada]
+                        guardar_cancionero(cancionero)
+                        st.success("¡Canción eliminada del cuaderno!")
+                        st.rerun()
+            
+            # Mostrar acordes grandes en pantalla para el músico
+            st.code(cancion['acordes'], language="text")
+            
     else:
         if st.session_state.lista_servicio:
             st.markdown("### 🎼 Guía rápida del Servicio de hoy")
@@ -184,7 +217,6 @@ with pestana_agregar:
                     with st.spinner("Leyendo tu cuaderno con IA..."):
                         try:
                             model = genai.GenerativeModel('gemini-1.5-flash')
-                            # Instrucciones actualizadas para que la IA escriba Estrofa correctamente
                             instrucciones = """
                             Analiza la imagen de este cuaderno de acordes musicales. 
                             Extrae el título de la canción y los acordes correspondientes a cada sección (Estrofa, Pre coro, Coro).
