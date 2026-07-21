@@ -1,8 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
 from PIL import Image
+import requests
 import json
-import os
 from datetime import datetime
 
 # 1. Configuración de la página
@@ -29,74 +29,76 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Configura tu API Key de Google Gemini
+# 2. CONFIGURACIÓN DE APIS (GEMINI Y BASE DE DATOS)
 API_KEY_GEMINI = "AQ.Ab8RN6IAXg7a9i016k1D4hXuitiGsrN2Gy_qQ_ap68rPfLf17w"
+
+# ⚠️ PEGA AQUÍ TUS CREDENCIALES DE JSONBIN.IO:
+BIN_ID = "6a5f8624da38895dfe7b4df3 "
+MASTER_KEY = "$2a$10$vknOXY8VuZW.tNRDuxItD.5YSkYK1V8hGisTCx56w3VwGCUDLLw0i"
 
 if API_KEY_GEMINI != "AQUÍ_PEGA_TU_CLAVE":
     genai.configure(api_key=API_KEY_GEMINI)
 
-# 2. BASE DE DATOS PERMANENTE (JSON)
-ARCHIVO_BD = "cancionero.json"
-
-canciones_defecto = {
-    "al que esta sentado": {
-        "titulo_real": "Al que está sentado",
-        "acordes": "Estrofa // D A D, Bm A D, Bm A D G // A\nCoro // D Bm G A, G A //"
-    },
-    "el gran yo soy": {
-        "titulo_real": "El Gran Yo Soy",
-        "acordes": "Estrofa // F# G#m C# F# //\nCoro // D#m B F# C#"
-    },
-    "santo por siempre": {
-        "titulo_real": "Santo por siempre",
-        "acordes": "Estrofa // F A# F Dm C F //\nPre coro // A# C Dm C A# //\nCoro // A# Dm C Am A Dm, Gm C F //"
-    },
-    "dios de lo imposible": {
-        "titulo_real": "Dios de lo imposible",
-        "acordes": "Estrofa // Cm G# D# A#, Cm G# D# A# //\nCoro // D# A# D# A# G# A# //"
-    }
+# 3. FUNCIONES DE BASE DE DATOS EN LA NUBE
+URL_JSONBIN = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
+HEADERS = {
+    "Content-Type": "application/json",
+    "X-Master-Key": MASTER_KEY
 }
 
-def cargar_datos():
-    if os.path.exists(ARCHIVO_BD):
-        try:
-            with open(ARCHIVO_BD, "r", encoding="utf-8") as f:
-                datos = json.load(f)
-                if "canciones" not in datos:
-                    return {"canciones": datos, "calendario": {}}
-                return datos
-        except:
-            return {"canciones": canciones_defecto, "calendario": {}}
-    else:
-        estructura = {"canciones": canciones_defecto, "calendario": {}}
-        guardar_datos(estructura)
-        return estructura
+# Cargar datos desde la nube
+@st.cache_data(ttl=5) # Refresca datos cada 5 segundos
+def cargar_datos_nube():
+    if BIN_ID == "PEGA_AQUÍ_TU_BIN_ID":
+        st.warning("⚠️ Debes configurar tu BIN_ID y MASTER_KEY de JSONBin en el código.")
+        return {"canciones": {}, "calendario": {}}
+    
+    try:
+        respuesta = requests.get(URL_JSONBIN, headers=HEADERS)
+        if respuesta.status_code == 200:
+            return respuesta.json()["record"]
+        else:
+            st.error("Error al conectar con la base de datos en la nube.")
+            return {"canciones": {}, "calendario": {}}
+    except Exception as e:
+        st.error(f"Error de conexión: {e}")
+        return {"canciones": {}, "calendario": {}}
 
-def guardar_datos(datos):
-    with open(ARCHIVO_BD, "w", encoding="utf-8") as f:
-        json.dump(datos, f, ensure_ascii=False, indent=4)
+# Guardar datos permanentes en la nube
+def guardar_datos_nube(datos):
+    try:
+        respuesta = requests.put(URL_JSONBIN, json=datos, headers=HEADERS)
+        if respuesta.status_code == 200:
+            st.cache_data.clear() # Limpia caché para mostrar los cambios
+            return True
+        else:
+            st.error("No se pudieron guardar los datos en la nube.")
+            return False
+    except Exception as e:
+        st.error(f"Error al guardar: {e}")
+        return False
 
-# Cargar la base de datos
-db = cargar_datos()
-cancionero = db["canciones"]
-calendario = db["calendario"]
+# Cargar la base de datos activa
+db = cargar_datos_nube()
+cancionero = db.get("canciones", {})
+calendario = db.get("calendario", {})
 
 if "lista_servicio" not in st.session_state:
     st.session_state.lista_servicio = []
 
-# Encabezado con diseño estilizado
+# Encabezado principal
 st.markdown(
     """
     <div style='background-color: #1e293b; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;'>
         <h1 style='color: #f8fafc; margin: 0; font-size: 26px;'>🎹 Libres por Cristo</h1>
-        <p style='color: #38bdf8; margin: 5px 0 0 0; font-size: 14px;'>Cancionero Digital & Agenda del Ministerio</p>
+        <p style='color: #38bdf8; margin: 5px 0 0 0; font-size: 14px;'>Cancionero Digital & Agenda (Conectado a la Nube ☁️)</p>
     </div>
     """, 
     unsafe_allow_html=True
 )
 
 # ==========================================
-# BARRA LATERAL (CREADOR DE LISTAS RÁPIDAS)
+# BARRA LATERAL (BORRADOR)
 # ==========================================
 with st.sidebar:
     st.header("📋 Lista Borrador")
@@ -167,20 +169,20 @@ with pestana_buscar:
                     if st.button("💾 Guardar Cambios", key=f"btn_save_{clave_seleccionada}"):
                         cancionero[clave_seleccionada]['acordes'] = nuevos_acordes_editados.strip()
                         db["canciones"] = cancionero
-                        guardar_datos(db)
-                        st.success("¡Canción editada!")
-                        st.rerun()
+                        if guardar_datos_nube(db):
+                            st.success("¡Canción editada en la nube!")
+                            st.rerun()
                 with col2:
                     if st.button("🗑️ Eliminar", key=f"btn_del_{clave_seleccionada}"):
                         del cancionero[clave_seleccionada]
                         db["canciones"] = cancionero
-                        guardar_datos(db)
-                        st.success("¡Eliminada!")
-                        st.rerun()
+                        if guardar_datos_nube(db):
+                            st.success("¡Eliminada de la nube!")
+                            st.rerun()
             
             st.code(cancion['acordes'], language="text")
     else:
-        st.info("Escribe arriba para buscar acordes o ve al Calendario para ver las canciones del próximo servicio.")
+        st.info("Escribe arriba para buscar acordes o ve al Calendario para ver el repertorio.")
 
 # --- PESTAÑA 2: CALENDARIO DE SERVICIOS ---
 with pestana_calendario:
@@ -202,7 +204,7 @@ with pestana_calendario:
         
         notas_adicionales = st.text_input("Indicaciones especiales (Ej: Tocar en tono Sol, ensayo a las 4 PM):")
         
-        if st.button("💾 Guardar en la Agenda"):
+        if st.button("💾 Guardar en la Agenda Cloud"):
             if canciones_para_fecha:
                 fecha_str = fecha_servicio.strftime("%Y-%m-%d")
                 
@@ -211,23 +213,21 @@ with pestana_calendario:
                     "canciones": canciones_para_fecha,
                     "notas": notas_adicionales
                 }
-                guardar_datos(db)
-                st.success(f"¡Servicio para el {fecha_str} guardado con éxito!")
-                st.session_state.lista_servicio = [] # Limpiamos borrador
-                st.rerun()
+                if guardar_datos_nube(db):
+                    st.success(f"¡Servicio para el {fecha_str} guardado permanentemente!")
+                    st.session_state.lista_servicio = []
+                    st.rerun()
             else:
-                st.error("Selecciona al menos una canción para programar el servicio.")
+                st.error("Selecciona al menos una canción.")
 
     elif opcion_cal == "Ver Agenda de Servicios":
         if not calendario:
             st.info("Aún no hay servicios programados en la agenda. ¡Programa el primero!")
         else:
             fechas_ordenadas = sorted(calendario.keys(), reverse=False)
-            
-            # Selector de fecha programada
             fechas_formateadas = {datetime.strptime(f, "%Y-%m-%d").strftime("%d/%m/%Y") + f" - {calendario[f]['tipo']}": f for f in fechas_ordenadas}
             
-            seleccion_fecha_label = st.selectbox("Elige la fecha del servicio a consultar:", list(fechas_formateadas.keys()))
+            seleccion_fecha_label = st.selectbox("Elige la fecha a consultar:", list(fechas_formateadas.keys()))
             clave_fecha = fechas_formateadas[seleccion_fecha_label]
             
             info_servicio = calendario[clave_fecha]
@@ -238,9 +238,7 @@ with pestana_calendario:
                 
             st.write("---")
             
-            # Desplegar los acordes de las canciones de esa fecha
             for i, nombre_c in enumerate(info_servicio['canciones'], 1):
-                # Buscamos los acordes
                 acordes_c = "Acordes no encontrados"
                 for c_item in cancionero.values():
                     if c_item["titulo_real"] == nombre_c:
@@ -252,9 +250,9 @@ with pestana_calendario:
                     
             if st.button("🗑️ Eliminar este servicio de la agenda"):
                 del db["calendario"][clave_fecha]
-                guardar_datos(db)
-                st.success("Servicio eliminado de la agenda.")
-                st.rerun()
+                if guardar_datos_nube(db):
+                    st.success("Servicio eliminado.")
+                    st.rerun()
 
 # --- PESTAÑA 3: AGREGAR CANCIÓN ---
 with pestana_agregar:
@@ -265,7 +263,7 @@ with pestana_agregar:
         nuevo_titulo = st.text_input("Nombre de la canción (Ej: Cuan grande es el):")
         nuevos_acordes = st.text_area("Estructura y acordes:", placeholder="Estrofa // G C D //\nCoro // G C D //")
         
-        if st.button("💾 Guardar Canción"):
+        if st.button("💾 Guardar Canción en la Nube"):
             if nuevo_titulo and nuevos_acordes:
                 clave_nueva = nuevo_titulo.lower().strip().replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
                 
@@ -274,9 +272,9 @@ with pestana_agregar:
                     "acordes": nuevos_acordes.strip()
                 }
                 db["canciones"] = cancionero
-                guardar_datos(db)
-                st.success(f"¡{nuevo_titulo} guardada!")
-                st.rerun()
+                if guardar_datos_nube(db):
+                    st.success(f"¡{nuevo_titulo} guardada para siempre en la nube!")
+                    st.rerun()
             else:
                 st.error("Por favor completa el título y los acordes.")
                 
@@ -354,7 +352,7 @@ with pestana_agregar:
                 titulo_final = st.text_input("Confirmar Título:", st.session_state["temp_titulo"])
                 acordes_finales = st.text_area("Confirmar Acordes:", st.session_state["temp_acordes"], height=150)
                 
-                if st.button("💾 Guardar en el Cancionero Permanente"):
+                if st.button("💾 Guardar en la Nube"):
                     clave_nueva = titulo_final.lower().strip().replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
                     
                     cancionero[clave_nueva] = {
@@ -362,9 +360,8 @@ with pestana_agregar:
                         "acordes": acordes_finales.strip()
                     }
                     db["canciones"] = cancionero
-                    guardar_datos(db)
-                    
-                    st.success(f"¡{titulo_final} ha sido guardada!")
-                    del st.session_state["temp_titulo"]
-                    del st.session_state["temp_acordes"]
-                    st.rerun()
+                    if guardar_datos_nube(db):
+                        st.success(f"¡{titulo_final} guardada para siempre!")
+                        del st.session_state["temp_titulo"]
+                        del st.session_state["temp_acordes"]
+                        st.rerun()
