@@ -12,7 +12,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# Estilo visual adaptado para el escenario
+# Estilo visual original adaptado para el escenario
 st.markdown(
     """
     <style>
@@ -91,7 +91,7 @@ st.markdown(
     """
     <div style='background-color: #1e293b; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;'>
         <h1 style='color: #f8fafc; margin: 0; font-size: 26px;'>🎹 Libres por Cristo</h1>
-        <p style='color: #38bdf8; margin: 5px 0 0 0; font-size: 14px;'>Cancionero Digital & Agenda (Conectado a la Nube ☁️)</p>
+        <p style='color: #38bdf8; margin: 5px 0 0 0; font-size: 14px;'>Agenda y lista de canciones digital</p>
     </div>
     """, 
     unsafe_allow_html=True
@@ -170,14 +170,14 @@ with pestana_buscar:
                         cancionero[clave_seleccionada]['acordes'] = nuevos_acordes_editados.strip()
                         db["canciones"] = cancionero
                         if guardar_datos_nube(db):
-                            st.success("¡Canción editada en la nube!")
+                            st.success("¡Canción editada!")
                             st.rerun()
                 with col2:
                     if st.button("🗑️ Eliminar", key=f"btn_del_{clave_seleccionada}"):
                         del cancionero[clave_seleccionada]
                         db["canciones"] = cancionero
                         if guardar_datos_nube(db):
-                            st.success("¡Eliminada de la nube!")
+                            st.success("¡Eliminada!")
                             st.rerun()
             
             st.code(cancion['acordes'], language="text")
@@ -204,7 +204,7 @@ with pestana_calendario:
         
         notas_adicionales = st.text_input("Indicaciones especiales (Ej: Tocar en tono Sol, ensayo a las 4 PM):")
         
-        if st.button("💾 Guardar en la Agenda Cloud"):
+        if st.button("💾 Guardar en la Agenda"):
             if canciones_para_fecha:
                 fecha_str = fecha_servicio.strftime("%Y-%m-%d")
                 
@@ -214,7 +214,7 @@ with pestana_calendario:
                     "notas": notas_adicionales
                 }
                 if guardar_datos_nube(db):
-                    st.success(f"¡Servicio para el {fecha_str} guardado permanentemente!")
+                    st.success(f"¡Servicio para el {fecha_str} guardado!")
                     st.session_state.lista_servicio = []
                     st.rerun()
             else:
@@ -263,7 +263,7 @@ with pestana_agregar:
         nuevo_titulo = st.text_input("Nombre de la canción (Ej: Cuan grande es el):")
         nuevos_acordes = st.text_area("Estructura y acordes:", placeholder="Estrofa // G C D //\nCoro // G C D //")
         
-        if st.button("💾 Guardar Canción en la Nube"):
+        if st.button("💾 Guardar Canción"):
             if nuevo_titulo and nuevos_acordes:
                 clave_nueva = nuevo_titulo.lower().strip().replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
                 
@@ -273,7 +273,7 @@ with pestana_agregar:
                 }
                 db["canciones"] = cancionero
                 if guardar_datos_nube(db):
-                    st.success(f"¡{nuevo_titulo} guardada para siempre en la nube!")
+                    st.success(f"¡{nuevo_titulo} guardada!")
                     st.rerun()
             else:
                 st.error("Por favor completa el título y los acordes.")
@@ -330,7 +330,7 @@ with pestana_agregar:
                                 if "---" in linea_limpia:
                                     encontró_separador = True
                                     continue
-                                if encontró_separador or (titulo_detectado and not linea_limpia.lower().startswith("titulo")):
+                                if logró_separador or (titulo_detectado and not linea_limpia.lower().startswith("titulo")):
                                     acordes_detectados.append(linea)
                             
                             if not titulo_detectado:
@@ -352,7 +352,7 @@ with pestana_agregar:
                 titulo_final = st.text_input("Confirmar Título:", st.session_state["temp_titulo"])
                 acordes_finales = st.text_area("Confirmar Acordes:", st.session_state["temp_acordes"], height=150)
                 
-                if st.button("💾 Guardar en la Nube"):
+                if st.button("💾 Guardar Canción"):
                     clave_nueva = titulo_final.lower().strip().replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
                     
                     cancionero[clave_nueva] = {
@@ -361,7 +361,7 @@ with pestana_agregar:
                     }
                     db["canciones"] = cancionero
                     if guardar_datos_nube(db):
-                        st.success(f"¡{titulo_final} guardada para siempre!")
+                        st.success(f"¡{titulo_final} guardada!")
                         del st.session_state["temp_titulo"]
                         del st.session_state["temp_acordes"]
                         st.rerun()
