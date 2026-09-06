@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="Libres por Cristo", page_icon="🎹", layout="centered"
 )
 
-# Estilo visual original adaptado para el escenario
+# Estilo visual
 st.markdown(
     """
     <style>
@@ -27,13 +27,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 2. CONFIGURACIÓN DE APIS (GEMINI Y BASE DE DATOS)
-API_KEY_GEMINI = "AQ.Ab8RN6IAXg7a9i016k1D4hXuitiGsrN2Gy_qQ_ap68rPfLf17w"
+# 2. CONFIGURACIÓN DE APIS Y BASE DE DATOS (LECTURA DESDE SECRETS)
+# Streamlit leerá las claves de forma segura desde sus "Secrets"
+API_KEY_GEMINI = st.secrets.get("API_KEY_GEMINI", "")
+BIN_ID = st.secrets.get("BIN_ID", "6a5f89cada38895dfe7b600f")
+MASTER_KEY = st.secrets.get(
+    "MASTER_KEY", "$2a$10$vknOXY8VuZW.tNRDuxItD.5YSkYK1V8hGisTCx56w3VwGCUDLLw0i"
+)
 
-BIN_ID = "6a5f89cada38895dfe7b600f"
-MASTER_KEY = "$2a$10$vknOXY8VuZW.tNRDuxItD.5YSkYK1V8hGisTCx56w3VwGCUDLLw0i"
-
-if API_KEY_GEMINI != "AQUÍ_PEGA_TU_CLAVE":
+if API_KEY_GEMINI:
     genai.configure(api_key=API_KEY_GEMINI)
 
 # 3. FUNCIONES DE BASE DE DATOS EN LA NUBE
@@ -42,15 +44,8 @@ HEADERS = {"Content-Type": "application/json", "X-Master-Key": MASTER_KEY}
 
 
 # Cargar datos desde la nube
-@st.cache_data(ttl=5)  # Refresca datos cada 5 segundos
+@st.cache_data(ttl=5)
 def cargar_datos_nube():
-    if BIN_ID == "PEGA_AQUÍ_TU_BIN_ID":
-        st.warning(
-            "⚠️ Debes configurar tu BIN_ID y MASTER_KEY de JSONBin en el"
-            " código."
-        )
-        return {"canciones": {}, "calendario": {}}
-
     try:
         respuesta = requests.get(URL_JSONBIN, headers=HEADERS)
         if respuesta.status_code == 200:
@@ -68,7 +63,7 @@ def guardar_datos_nube(datos):
     try:
         respuesta = requests.put(URL_JSONBIN, json=datos, headers=HEADERS)
         if respuesta.status_code == 200:
-            st.cache_data.clear()  # Limpia caché para mostrar los cambios
+            st.cache_data.clear()
             return True
         else:
             st.error("No se pudieron guardar los datos en la nube.")
@@ -346,8 +341,11 @@ with pestana_agregar:
                 st.error("Por favor completa el título y los acordes.")
 
     elif metodo == "Tomar una foto / Cargar Imagen 📸":
-        if API_KEY_GEMINI == "AQUÍ_PEGA_TU_CLAVE":
-            st.warning("⚠️ Configura tu API Key.")
+        if not API_KEY_GEMINI:
+            st.warning(
+                "⚠️ Debes configurar la API_KEY_GEMINI en los Secrets de"
+                " Streamlit."
+            )
         else:
             foto = st.file_uploader(
                 "Sube una foto o tómala con tu cámara:",
@@ -388,12 +386,8 @@ with pestana_agregar:
 
                         resultado_texto = None
 
-                        # Intento con fallback de modelos de Gemini
-                        modelos = [
-                            "gemini-1.5-flash-latest",
-                            "gemini-1.5-flash",
-                            "gemini-1.5-pro",
-                        ]
+                        # Intento con los modelos compatibles de Gemini
+                        modelos = ["gemini-1.5-flash", "gemini-1.5-pro"]
                         for m in modelos:
                             try:
                                 model = genai.GenerativeModel(m)
@@ -428,7 +422,6 @@ with pestana_agregar:
                                 if "---" in linea_limpia:
                                     encontró_separador = True
                                     continue
-                                # ✅ Variable corregida a 'encontró_separador'
                                 if encontró_separador or (
                                     titulo_detectado
                                     and not linea_limpia.lower().startswith(
@@ -454,7 +447,7 @@ with pestana_agregar:
                         else:
                             st.error(
                                 "No se pudo conectar con la API de Gemini."
-                                " Revisa tu clave o la conexión."
+                                " Revisa los Secrets en Streamlit."
                             )
 
             if "temp_titulo" in st.session_state:
