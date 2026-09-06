@@ -298,7 +298,7 @@ with pestana_agregar:
                 if st.button("🪄 Digitalizar con Inteligencia Artificial"):
                     with st.spinner("Leyendo tu cuaderno con IA..."):
                         try:
-                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            model = genai.GenerativeModel("gemini-1.5-flash-latest")
                             instrucciones = """
                             Analiza la imagen de este cuaderno de acordes musicales. 
                             Extrae el título de la canción y los acordes correspondientes a cada sección (Estrofa, Pre coro, Coro).
