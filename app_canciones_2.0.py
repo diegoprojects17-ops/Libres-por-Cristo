@@ -340,100 +340,147 @@ with pestana_agregar:
             else:
                 st.error("Por favor completa el título y los acordes.")
 
-elif metodo == "Tomar una foto / Cargar Imagen 📸":
-        api_ocr = st.secrets.get("OCR_KEY", "K88268393588957")  # Clave OCR
-        foto = st.file_uploader(
-            "Sube una foto o tómala con tu cámara:", type=["jpg", "jpeg", "png"]
-        )
+    elif metodo == "Tomar una foto / Cargar Imagen 📸":
+        if not API_KEY_GEMINI:
+            st.warning(
+                "⚠️ Debes configurar la API_KEY_GEMINI en los Secrets de"
+                " Streamlit."
+            )
+        else:
+            foto = st.file_uploader(
+                "Sube una foto o tómala con tu cámara:",
+                type=["jpg", "jpeg", "png"],
+            )
 
-        if foto is not None:
-            imagen_original = Image.open(foto)
-            st.image(imagen_original, caption="Foto cargada", width=250)
+            if foto is not None:
+                imagen_original = Image.open(foto)
+                if imagen_original.width > 1024:
+                    proporcion = 1024 / float(imagen_original.width)
+                    alto_nuevo = int(
+                        (float(imagen_original.height) * float(proporcion))
+                    )
+                    imagen_procesada = imagen_original.resize(
+                        (1024, alto_nuevo), Image.Resampling.LANCZOS
+                    )
+                else:
+                    imagen_procesada = imagen_original
 
-            if st.button("🪄 Digitalizar Texto de la Foto"):
-                with st.spinner("Leyendo la imagen..."):
-                    try:
-                        # Enviamos la imagen al servicio OCR
-                        foto.seek(0)
-                        payload = {
-                            "apikey": api_ocr,
-                            "language": "spa",
-                            "isOverlayRequired": False,
-                        }
-                        respuesta = requests.post(
-                            "https://api.ocr.space/parse/image",
-                            files={"filename": foto.getvalue()},
-                            data=payload,
-                        )
-                        resultado = respuesta.json()
+                st.image(
+                    imagen_procesada, caption="Foto optimizada", width=250
+                )
 
-                        if (
-                            resultado.get("OCRExitCode") == 1
-                            and resultado["ParsedResults"]
-                        ):
-                            texto_extraido = resultado["ParsedResults"][0][
-                                "ParsedText"
-                            ]
+                if st.button("🪄 Digitalizar con Inteligencia Artificial"):
+                    with st.spinner("Leyendo tu cuaderno con IA..."):
+                        instrucciones = """
+                        Analiza la imagen de este cuaderno de acordes musicales. 
+                        Extrae el título de la canción y los acordes correspondientes a cada sección (Estrofa, Pre coro, Coro).
+                        Debes estructurar el resultado EXACTAMENTE con el siguiente formato, usando barras dobles '//':
+                        
+                        Título: Nombre de la Canción
+                        ---
+                        Estrofa // D A D, Bm A D //
+                        Coro // D Bm G A //
+                        
+                        No agregues letras ni explicaciones. Es muy importante que uses la palabra 'Estrofa' y NUNCA 'Estropa'.
+                        """
 
-                            # Intentar separar el título si la primera línea no tiene acordes
-                            lineas = [
-                                l.strip()
-                                for l in texto_extraido.split("\n")
-                                if l.strip()
-                            ]
-                            if lineas:
-                                st.session_state["temp_titulo"] = lineas[0]
-                                st.session_state["temp_acordes"] = "\n".join(
-                                    lineas[1:]
+                        resultado_texto = None
+
+                        # Intento con los modelos compatibles de Gemini
+                        modelos = ["gemini-1.5-flash", "gemini-1.5-pro"]
+                        for m in modelos:
+                            try:
+                                model = genai.GenerativeModel(m)
+                                respuesta = model.generate_content(
+                                    [instrucciones, imagen_procesada]
                                 )
-                            else:
-                                st.session_state["temp_titulo"] = (
-                                    "Nueva Canción"
-                                )
-                                st.session_state["temp_acordes"] = (
-                                    texto_extraido
-                                )
+                                resultado_texto = respuesta.text
+                                break
+                            except Exception:
+                                continue
+
+                        if resultado_texto:
+                            lineas = resultado_texto.strip().split("\n")
+                            titulo_detectado = ""
+                            acordes_detectados = []
+                            encontró_separador = False
+
+                            for linea in lineas:
+                                linea_limpia = linea.strip()
+                                if not linea_limpia:
+                                    continue
+                                if (
+                                    linea_limpia.lower().startswith("titulo:")
+                                    or linea_limpia.lower().startswith(
+                                        "título:"
+                                    )
+                                ) and not titulo_detectado:
+                                    titulo_detectado = linea.split(":", 1)[
+                                        1
+                                    ].strip()
+                                    continue
+                                if "---" in linea_limpia:
+                                    encontró_separador = True
+                                    continue
+                                if encontró_separador or (
+                                    titulo_detectado
+                                    and not linea_limpia.lower().startswith(
+                                        "titulo"
+                                    )
+                                ):
+                                    acordes_detectados.append(linea)
+
+                            if not titulo_detectado:
+                                titulo_detectado = "Nueva Canción Detectada"
+
+                            acordes_final_texto = (
+                                "\n".join(acordes_detectados)
+                                if acordes_detectados
+                                else resultado_texto
+                            )
+
+                            st.session_state["temp_titulo"] = titulo_detectado
+                            st.session_state["temp_acordes"] = (
+                                acordes_final_texto.strip()
+                            )
                             st.rerun()
                         else:
                             st.error(
-                                "No se pudo leer el texto de la imagen. Intenta"
-                                " con una foto con mejor iluminación."
+                                "No se pudo conectar con la API de Gemini."
+                                " Revisa los Secrets en Streamlit."
                             )
-                    except Exception as e:
-                        st.error(f"Error al procesar la imagen: {e}")
 
-        if "temp_titulo" in st.session_state:
-            st.write("---")
-            st.subheader("🔍 Verifica el resultado:")
+            if "temp_titulo" in st.session_state:
+                st.write("---")
+                st.subheader("🔍 Verifica el resultado de la IA:")
 
-            titulo_final = st.text_input(
-                "Confirmar Título:", st.session_state["temp_titulo"]
-            )
-            acordes_finales = st.text_area(
-                "Confirmar Acordes:",
-                st.session_state["temp_acordes"],
-                height=150,
-            )
-
-            if st.button("💾 Guardar Canción"):
-                clave_nueva = (
-                    titulo_final.lower()
-                    .strip()
-                    .replace("á", "a")
-                    .replace("é", "e")
-                    .replace("í", "i")
-                    .replace("ó", "o")
-                    .replace("ú", "u")
+                titulo_final = st.text_input(
+                    "Confirmar Título:", st.session_state["temp_titulo"]
+                )
+                acordes_finales = st.text_area(
+                    "Confirmar Acordes:",
+                    st.session_state["temp_acordes"],
+                    height=150,
                 )
 
-                cancionero[clave_nueva] = {
-                    "titulo_real": titulo_final.strip(),
-                    "acordes": acordes_finales.strip(),
-                }
-                db["canciones"] = cancionero
-                if guardar_datos_nube(db):
-                    st.success(f"¡{titulo_final} guardada!")
-                    del st.session_state["temp_titulo"]
-                    del st.session_state["temp_acordes"]
-                    st.rerun()
-   
+                if st.button("💾 Guardar Canción"):
+                    clave_nueva = (
+                        titulo_final.lower()
+                        .strip()
+                        .replace("á", "a")
+                        .replace("é", "e")
+                        .replace("í", "i")
+                        .replace("ó", "o")
+                        .replace("ú", "u")
+                    )
+
+                    cancionero[clave_nueva] = {
+                        "titulo_real": titulo_final.strip(),
+                        "acordes": acordes_finales.strip(),
+                    }
+                    db["canciones"] = cancionero
+                    if guardar_datos_nube(db):
+                        st.success(f"¡{titulo_final} guardada!")
+                        del st.session_state["temp_titulo"]
+                        del st.session_state["temp_acordes"]
+                        st.rerun(
