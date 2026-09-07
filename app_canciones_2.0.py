@@ -1,6 +1,6 @@
 from datetime import datetime
 import json
-import Image
+from PIL import Image
 import requests
 import streamlit as st
 
