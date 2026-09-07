@@ -483,4 +483,4 @@ with pestana_agregar:
                         st.success(f"¡{titulo_final} guardada!")
                         del st.session_state["temp_titulo"]
                         del st.session_state["temp_acordes"]
-                        st.rerun(
+                        st.rerun()
