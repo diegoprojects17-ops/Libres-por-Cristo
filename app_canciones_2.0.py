@@ -125,6 +125,92 @@ def transponer_texto_acordes(texto, semitonos):
     return "\n".join(lineas_transp)
 
 
+# PARSEADOR DE CIFRA CLUB A FORMATO RESUMIDO
+def parsear_acordes_cifra(soup):
+    cifra_pre = soup.find("pre")
+    if not cifra_pre:
+        return ""
+
+    secciones = []
+    seccion_actual = "Intro"
+    acordes_seccion = []
+
+    # Diccionario de traducción de secciones comunes en portugués/español
+    traducciones_seccion = {
+        "intro": "Intro",
+        "introdução": "Intro",
+        "primeira parte": "Estrofa",
+        "segunda parte": "Estrofa",
+        "verso": "Estrofa",
+        "pré-refrão": "Pre-coro",
+        "pré refrão": "Pre-coro",
+        "refrão": "Coro",
+        "coro": "Coro",
+        "ponte": "Puente",
+        "interlúdio": "Puente",
+        "solo": "Solo",
+        "final": "Final",
+    }
+
+    # Recorremos los elementos dentro del tag <pre>
+    for elem in cifra_pre.children:
+        # Detectar etiquetas de sección (ej. [Primeira Parte], [Refrão])
+        if elem.name == "b":
+            texto_b = elem.get_text().strip().lower().replace("[", "").replace("]", "")
+            if texto_b:
+                if acordes_seccion:
+                    # Guardar la sección previa antes de pasar a la nueva
+                    cadena_acordes = " ".join(acordes_seccion)
+                    secciones.append(
+                        f"{seccion_actual} // {cadena_acordes} //"
+                    )
+                    acordes_seccion = []
+
+                # Nombre traducido
+                seccion_actual = traducciones_seccion.get(
+                    texto_b, texto_b.capitalize()
+                )
+
+        # Detectar acordes envueltos en <b>...</b> o etiquetas <a>/<b> internas de Cifra Club
+        elif elem.name == "span" or hasattr(elem, "find_all"):
+            acordes_encontrados = elem.find_all("b")
+            for a in acordes_encontrados:
+                ac = a.get_text(strip=True)
+                if ac and ac not in acordes_seccion:
+                    acordes_seccion.append(ac)
+        elif isinstance(elem, str):
+            # Parsear acordes sueltos en texto si no están en tags
+            palabras = elem.split()
+            for p in palabras:
+                if re.match(
+                    r"^[A-G][#b]?(m|maj|min|dim|aug|sus)?[0-9]?(\/[A-G][#b]?)?$",
+                    p,
+                ):
+                    if p not in acordes_seccion:
+                        acordes_seccion.append(p)
+
+    # Guardar última sección procesada
+    if acordes_seccion:
+        cadena_acordes = " ".join(acordes_seccion)
+        secciones.append(f"{seccion_actual} // {cadena_acordes} //")
+
+    # Si por alguna razón la estructura no tenía etiquetas <b> de secciones, hacer extracción general
+    if not secciones:
+        acordes_todos = []
+        for b in cifra_pre.find_all("b"):
+            ac = b.get_text(strip=True)
+            if (
+                ac
+                and re.match(r"^[A-G]", ac)
+                and ac not in acordes_todos
+            ):
+                acordes_todos.append(ac)
+        if acordes_todos:
+            secciones.append(f"Estrofa // {' '.join(acordes_todos)} //")
+
+    return "\n".join(secciones)
+
+
 # Cargar la base de datos activa
 db = cargar_datos_nube()
 cancionero = db.get("canciones", {})
@@ -359,7 +445,7 @@ with pestana_agregar:
         "Elige cómo deseas agregarla:",
         [
             "Escribir manualmente",
-            "Buscar en Cifra Club / Pegar Link 🎸",
+            "Pegar Link Directo de Cifra Club 🎸",
             "Tomar una foto / Cargar Imagen 📸",
         ],
     )
@@ -396,122 +482,21 @@ with pestana_agregar:
             else:
                 st.error("Por favor completa el título y los acordes.")
 
-    elif metodo == "Buscar en Cifra Club / Pegar Link 🎸":
-        st.markdown("### 🎸 Extraer de Cifra Club")
+    elif metodo == "Pegar Link Directo de Cifra Club 🎸":
+        st.markdown("### 🎸 Extraer de Cifra Club via URL")
 
-        sub_metodo = st.radio(
-            "Selecciona forma de búsqueda:",
-            ["Por Nombre de Canción", "Pegar Enlace (URL) Directo"],
+        url_directa = st.text_input(
+            "Pega el link de la canción en Cifra Club:",
+            placeholder="https://www.cifraclub.com/marcos-witt/cuan-grande-es-el/",
         )
 
-        if sub_metodo == "Pegar Enlace (URL) Directo":
-            url_directa = st.text_input(
-                "Pega el link de la canción en Cifra Club:",
-                placeholder="https://www.cifraclub.com/marcos-witt/cuan-grande-es-el/",
-            )
-            if st.button("📥 Importar desde URL"):
-                if url_directa:
-                    st.session_state["url_cifra_seleccionada"] = url_directa
-                    st.session_state["nombre_cifra_temp"] = "Canción Cifra Club"
-                else:
-                    st.error("Ingresa una URL válida.")
+        if st.button("📥 Importar desde URL"):
+            if url_directa:
+                st.session_state["url_cifra_seleccionada"] = url_directa
+            else:
+                st.error("Ingresa una URL válida.")
 
-        else:
-            busqueda_cifra = st.text_input(
-                "Escribe el nombre de la canción o artista:",
-                placeholder="Ej: Cuan grande es el",
-            )
-
-            if st.button("🔍 Buscar Canción"):
-                if busqueda_cifra:
-                    with st.spinner("Buscando en Cifra Club..."):
-                        try:
-                            from bs4 import BeautifulSoup
-
-                            # Búsqueda directa sobre el motor principal de Cifra Club
-                            url_search = f"https://www.cifraclub.com/?q={requests.utils.quote(busqueda_cifra)}"
-                            headers = {
-                                "User-Agent": (
-                                    "Mozilla/5.0 (Windows NT 10.0; Win64;"
-                                    " x64) AppleWebKit/537.36 (KHTML, like"
-                                    " Gecko) Chrome/120.0.0.0 Safari/537.36"
-                                )
-                            }
-                            res = requests.get(
-                                url_search, headers=headers, timeout=10
-                            )
-
-                            if res.status_code == 200:
-                                soup = BeautifulSoup(res.text, "html.parser")
-                                resultados = []
-
-                                # Extraer enlaces de canciones encontradas en los resultados
-                                for a in soup.find_all("a", href=True):
-                                    href = a["href"]
-                                    if (
-                                        href.startswith("/")
-                                        and href.count("/") >= 3
-                                        and not any(
-                                            x in href
-                                            for x in [
-                                                "/letra/",
-                                                "/blog/",
-                                                "/lista/",
-                                                "/aprender/",
-                                            ]
-                                        )
-                                    ):
-                                        texto = a.get_text(strip=True)
-                                        if texto and len(texto) > 2:
-                                            link = f"https://www.cifraclub.com{href}"
-                                            if not any(
-                                                r["url"] == link
-                                                for r in resultados
-                                            ):
-                                                resultados.append({
-                                                    "label": texto,
-                                                    "url": link,
-                                                })
-
-                                if resultados:
-                                    st.session_state["resultados_cifra"] = (
-                                        resultados[:10]
-                                    )
-                                else:
-                                    st.warning(
-                                        "No se encontraron canciones. Intenta"
-                                        " con palabras clave más sencillas o la"
-                                        " opción 'Pegar Enlace Directo'."
-                                    )
-                            else:
-                                st.error(
-                                    f"Error al conectar con Cifra Club (Código"
-                                    f" {res.status_code})."
-                                )
-                        except Exception as e:
-                            st.error(f"Error en la búsqueda: {e}")
-                else:
-                    st.error("Escribe el nombre de una canción.")
-
-            if (
-                "resultados_cifra" in st.session_state
-                and st.session_state["resultados_cifra"]
-            ):
-                opciones = {
-                    r["label"]: r["url"]
-                    for r in st.session_state["resultados_cifra"]
-                }
-                cancion_elegida = st.selectbox(
-                    "Selecciona la versión:", list(opciones.keys())
-                )
-
-                if st.button("📥 Cargar esta versión"):
-                    st.session_state["url_cifra_seleccionada"] = opciones[
-                        cancion_elegida
-                    ]
-                    st.session_state["nombre_cifra_temp"] = cancion_elegida
-
-        # Si ya se seleccionó una URL
+        # Si ya se ingresó la URL
         if "url_cifra_seleccionada" in st.session_state:
             st.write("---")
             st.markdown("#### 🎼 Ajustar Tonalidad y Confirmar:")
@@ -533,8 +518,8 @@ with pestana_agregar:
             )
             semitonos = semitonos_dict[opcion_trans]
 
-            if st.button("✨ Procesar e Importar Acordes"):
-                with st.spinner("Descargando y transponiendo acordes..."):
+            if st.button("✨ Procesar e Extraer Acordes"):
+                with st.spinner("Descargando y parseando acordes..."):
                     try:
                         from bs4 import BeautifulSoup
 
@@ -556,33 +541,28 @@ with pestana_agregar:
                         titulo_real = (
                             titulo_elem.get_text(strip=True)
                             if titulo_elem
-                            else st.session_state.get(
-                                "nombre_cifra_temp", "Nueva Canción"
-                            )
+                            else "Nueva Canción"
                         )
 
-                        cifra_pre = soup.find("pre")
-                        if cifra_pre:
-                            texto_raw = cifra_pre.get_text()
-                            texto_transp = transponer_texto_acordes(
-                                texto_raw, semitonos
-                            )
+                        texto_resumido = parsear_acordes_cifra(soup)
 
+                        if texto_resumido:
+                            texto_transp = transponer_texto_acordes(
+                                texto_resumido, semitonos
+                            )
                             st.session_state["temp_titulo"] = titulo_real
                             st.session_state["temp_acordes"] = texto_transp
-                            st.success("¡Canción lista para guardar!")
+                            st.success("¡Acordes extraídos exitosamente!")
 
                             del st.session_state["url_cifra_seleccionada"]
-                            if "resultados_cifra" in st.session_state:
-                                del st.session_state["resultados_cifra"]
                             st.rerun()
                         else:
                             st.error(
-                                "No se pudieron extraer los acordes de la"
-                                " página."
+                                "No se pudieron identificar acordes en el link"
+                                " proporcionado."
                             )
                     except Exception as e:
-                        st.error(f"Error al descargar la canción: {e}")
+                        st.error(f"Error al procesar la página: {e}")
 
     elif metodo == "Tomar una foto / Cargar Imagen 📸":
         foto = st.file_uploader(
