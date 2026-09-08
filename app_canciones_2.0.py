@@ -69,7 +69,7 @@ def guardar_datos_nube(datos):
         return False
 
 
-# LÓGICA DE TRANSPOSICIÓN DE ACORDES
+# 4. LÓGICA DE TRANSPOSICIÓN DE ACORDES
 NOTAS_CROMATICAS = [
     "C",
     "C#",
@@ -125,18 +125,16 @@ def transponer_texto_acordes(texto, semitonos):
     return "\n".join(lineas_transp)
 
 
-# PARSEADOR DE CIFRA CLUB A FORMATO RESUMIDO
+# 5. PARSEADOR DE ESTRUCTURA Y ACORDES DESDE CIFRA CLUB
 def parsear_acordes_cifra(soup):
     cifra_pre = soup.find("pre")
     if not cifra_pre:
         return ""
 
-    secciones = []
-    seccion_actual = "Intro"
-    acordes_seccion = []
+    secciones_resumen = []
 
-    # Diccionario de traducción de secciones comunes en portugués/español
-    traducciones_seccion = {
+    # Diccionario de traducción de secciones desde Cifra Club (Portugués / Español)
+    traducciones = {
         "intro": "Intro",
         "introdução": "Intro",
         "primeira parte": "Estrofa",
@@ -152,63 +150,87 @@ def parsear_acordes_cifra(soup):
         "final": "Final",
     }
 
-    # Recorremos los elementos dentro del tag <pre>
-    for elem in cifra_pre.children:
-        # Detectar etiquetas de sección (ej. [Primeira Parte], [Refrão])
-        if elem.name == "b":
-            texto_b = elem.get_text().strip().lower().replace("[", "").replace("]", "")
-            if texto_b:
-                if acordes_seccion:
-                    # Guardar la sección previa antes de pasar a la nueva
-                    cadena_acordes = " ".join(acordes_seccion)
-                    secciones.append(
-                        f"{seccion_actual} // {cadena_acordes} //"
-                    )
-                    acordes_seccion = []
+    seccion_actual = "Intro"
+    acordes_seccion = []
 
-                # Nombre traducido
-                seccion_actual = traducciones_seccion.get(
-                    texto_b, texto_b.capitalize()
-                )
+    # Extraer encabezados (<b>) y acordes manteniendo el orden de las secciones
+    for elem in cifra_pre.find_all(["b", "a"]):
+        texto_elem = elem.get_text().strip()
 
-        # Detectar acordes envueltos en <b>...</b> o etiquetas <a>/<b> internas de Cifra Club
-        elif elem.name == "span" or hasattr(elem, "find_all"):
-            acordes_encontrados = elem.find_all("b")
-            for a in acordes_encontrados:
-                ac = a.get_text(strip=True)
-                if ac and ac not in acordes_seccion:
-                    acordes_seccion.append(ac)
-        elif isinstance(elem, str):
-            # Parsear acordes sueltos en texto si no están en tags
-            palabras = elem.split()
-            for p in palabras:
-                if re.match(
-                    r"^[A-G][#b]?(m|maj|min|dim|aug|sus)?[0-9]?(\/[A-G][#b]?)?$",
-                    p,
-                ):
-                    if p not in acordes_seccion:
-                        acordes_seccion.append(p)
+        # Si es una etiqueta <b> que indica inicio de sección ej: [Primeira Parte]
+        if elem.name == "b" and (
+            "[" in texto_elem
+            or "parte" in texto_elem.lower()
+            or "refrão" in texto_elem.lower()
+            or "intro" in texto_elem.lower()
+        ):
+            if acordes_seccion:
+                cadena = " ".join(acordes_seccion)
+                secciones_resumen.append(f"{seccion_actual} // {cadena} //")
+                acordes_seccion = []
 
-    # Guardar última sección procesada
+            # Limpiar nombre de sección
+            nombre_limpio = re.sub(r"[\[\]]", "", texto_elem).strip().lower()
+            seccion_actual = traducciones.get(
+                nombre_limpio, nombre_limpio.capitalize()
+            )
+
+        # Si es un acorde reconocido en las etiquetas <b> o <a> de Cifra Club
+        elif re.match(
+            r"^[A-G][#b]?(m|maj|min|dim|aug|sus)?[0-9]?(\/[A-G][#b]?)?$",
+            texto_elem,
+        ):
+            if texto_elem not in acordes_seccion:
+                acordes_seccion.append(texto_elem)
+
+    # Añadir la última sección procesada
     if acordes_seccion:
-        cadena_acordes = " ".join(acordes_seccion)
-        secciones.append(f"{seccion_actual} // {cadena_acordes} //")
+        cadena = " ".join(acordes_seccion)
+        secciones_resumen.append(f"{seccion_actual} // {cadena} //")
 
-    # Si por alguna razón la estructura no tenía etiquetas <b> de secciones, hacer extracción general
-    if not secciones:
-        acordes_todos = []
-        for b in cifra_pre.find_all("b"):
-            ac = b.get_text(strip=True)
-            if (
-                ac
-                and re.match(r"^[A-G]", ac)
-                and ac not in acordes_todos
+    # Respaldo si no hay etiquetas HTML explicitas
+    if not secciones_resumen:
+        lineas = cifra_pre.get_text().split("\n")
+        sec_temp = "Estrofa"
+        acordes_temp = []
+
+        for linea in lineas:
+            linea_str = linea.strip()
+            if any(
+                k in linea_str.lower()
+                for k in [
+                    "estrofa",
+                    "coro",
+                    "verso",
+                    "puente",
+                    "pre-coro",
+                    "intro",
+                    "refrão",
+                    "parte",
+                ]
             ):
-                acordes_todos.append(ac)
-        if acordes_todos:
-            secciones.append(f"Estrofa // {' '.join(acordes_todos)} //")
+                if acordes_temp:
+                    secciones_resumen.append(
+                        f"{sec_temp} // {' '.join(acordes_temp)} //"
+                    )
+                    acordes_temp = []
+                sec_temp = linea_str.replace("[", "").replace("]", "").capitalize()
+            else:
+                palabras = linea_str.split()
+                for p in palabras:
+                    if re.match(
+                        r"^[A-G][#b]?(m|maj|min|dim|aug|sus)?[0-9]?(\/[A-G][#b]?)?$",
+                        p,
+                    ):
+                        if p not in acordes_temp:
+                            acordes_temp.append(p)
 
-    return "\n".join(secciones)
+        if acordes_temp:
+            secciones_resumen.append(
+                f"{sec_temp} // {' '.join(acordes_temp)} //"
+            )
+
+    return "\n".join(secciones_resumen)
 
 
 # Cargar la base de datos activa
@@ -496,7 +518,6 @@ with pestana_agregar:
             else:
                 st.error("Ingresa una URL válida.")
 
-        # Si ya se ingresó la URL
         if "url_cifra_seleccionada" in st.session_state:
             st.write("---")
             st.markdown("#### 🎼 Ajustar Tonalidad y Confirmar:")
@@ -519,7 +540,7 @@ with pestana_agregar:
             semitonos = semitonos_dict[opcion_trans]
 
             if st.button("✨ Procesar e Extraer Acordes"):
-                with st.spinner("Descargando y parseando acordes..."):
+                with st.spinner("Analizando estructura de Cifra Club..."):
                     try:
                         from bs4 import BeautifulSoup
 
@@ -552,17 +573,17 @@ with pestana_agregar:
                             )
                             st.session_state["temp_titulo"] = titulo_real
                             st.session_state["temp_acordes"] = texto_transp
-                            st.success("¡Acordes extraídos exitosamente!")
+                            st.success("¡Estructura y acordes extraídos!")
 
                             del st.session_state["url_cifra_seleccionada"]
                             st.rerun()
                         else:
                             st.error(
-                                "No se pudieron identificar acordes en el link"
-                                " proporcionado."
+                                "No se pudo identificar la estructura de la"
+                                " canción."
                             )
                     except Exception as e:
-                        st.error(f"Error al procesar la página: {e}")
+                        st.error(f"Error al procesar la URL: {e}")
 
     elif metodo == "Tomar una foto / Cargar Imagen 📸":
         foto = st.file_uploader(
