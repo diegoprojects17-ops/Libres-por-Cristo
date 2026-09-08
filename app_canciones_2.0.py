@@ -11,7 +11,7 @@ st.set_page_config(
     page_title="Libres por Cristo", page_icon="🎹", layout="centered"
 )
 
-# Estilos CSS personalizados (Modo oscuro OLED + Chips de colores para secciones)
+# Estilos CSS personalizados (Modo oscuro OLED + Chips de colores para secciones e indicador de Tono)
 st.markdown(
     """
     <style>
@@ -23,6 +23,7 @@ st.markdown(
         background-color: #020617 !important;
         border-left: 5px solid #38bdf8 !important;
     }
+    .badge-tono { background-color: #0284c7; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 16px; display: inline-block; margin-bottom: 15px; border: 1px solid #38bdf8; }
     .badge-intro { background-color: #1e3a8a; color: #93c5fd; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     .badge-estrofa { background-color: #065f46; color: #6ee7b7; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     .badge-coro { background-color: #854d0e; color: #fde047; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
@@ -74,7 +75,7 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. LÓGICA DE TRANSPOSICIÓN Y RENDERIZADO VISUAL
+# 4. LÓGICA DE TRANSPOSICIÓN CORREGIDA Y DETECCIÓN DE TONO
 NOTAS_CROMATICAS = [
     "C",
     "C#",
@@ -115,25 +116,59 @@ def transponer_acorde(acorde, semitonos):
 
 
 def transponer_texto_acordes(texto, semitonos):
+    """Transpone únicamente los bloques de acordes sin alterar el nombre de las etiquetas."""
     if semitonos == 0:
         return texto
     lineas = texto.split("\n")
     lineas_transp = []
+
     for linea in lineas:
-        palabras = linea.split()
-        if palabras and sum(
-            1 for p in palabras if re.match(r"^[A-G][#b]?", p)
-        ) >= len(palabras) * 0.4:
-            lineas_transp.append(transponer_acorde(linea, semitonos))
+        if "//" in linea:
+            partes = linea.split("//")
+            nombre_sec = partes[0]
+            acordes_sec = partes[1] if len(partes) > 1 else ""
+            resto = "//".join(partes[2:]) if len(partes) > 2 else ""
+
+            # Transponemos SOLAMENTE la sección de acordes
+            acordes_transp = transponer_acorde(acordes_sec, semitonos)
+
+            linea_reconstruida = f"{nombre_sec}//{acordes_transp}//"
+            if resto:
+                linea_reconstruida += f"{resto}"
+            lineas_transp.append(linea_reconstruida)
         else:
-            lineas_transp.append(linea)
+            palabras = linea.split()
+            if palabras and sum(
+                1 for p in palabras if re.match(r"^[A-G][#b]?", p)
+            ) >= len(palabras) * 0.4:
+                lineas_transp.append(transponer_acorde(linea, semitonos))
+            else:
+                lineas_transp.append(linea)
+
     return "\n".join(lineas_transp)
+
+
+def detectar_tono_principal(texto_acordes):
+    """Detecta el primer acorde relevante de la canción para mostrar el tono."""
+    patron_acorde = (
+        r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
+    )
+    acordes = re.findall(patron_acorde, texto_acordes)
+    if acordes:
+        return acordes[0]
+    return "N/A"
 
 
 def renderizar_bloques_color(texto_acordes):
     """Convierte el formato 'Sección // Acordes //' en bloques visuales con resaltado."""
     lineas = texto_acordes.split("\n")
     html_output = ""
+
+    # Indicador de Tono
+    tono_detectado = detectar_tono_principal(texto_acordes)
+    html_output += (
+        f'<div class="badge-tono">🎵 Tonalidad actual: {tono_detectado}</div>'
+    )
 
     for linea in lineas:
         if "//" in linea:
@@ -220,7 +255,6 @@ def parsear_acordes_cifra(soup):
             linea_str.lower().replace("[", "").replace("]", "").strip()
         )
 
-        # Comprobar si hay un encabezado explícito
         es_encabezado = False
         for clave, nombre_norm in traducciones.items():
             if clave in linea_lower:
@@ -236,7 +270,6 @@ def parsear_acordes_cifra(soup):
             sec_actual = nuevo_nombre
             continue
 
-        # Extraer acordes de la línea
         palabras = linea_str.split()
         acordes_linea = [p for p in palabras if re.match(patron_acorde, p)]
 
@@ -361,7 +394,7 @@ with pestana_buscar:
                 cancion["acordes"], semitonos_v
             )
 
-            # Visualización con bloques de colores
+            # Visualización con bloques de colores e indicador de tono
             renderizar_bloques_color(acordes_mostrados)
 
             with st.expander("🛠️ Editar datos o acordes"):
@@ -455,7 +488,6 @@ with pestana_calendario:
             if info_servicio["notas"]:
                 st.info(f"📌 **Observación:** {info_servicio['notas']}")
 
-            # Generar texto limpio para compartir por WhatsApp
             texto_wa = (
                 f"*REPERTORIO {info_servicio['tipo'].upper()}*\n📅"
                 f" *Fecha:* {clave_fecha}\n\n"
