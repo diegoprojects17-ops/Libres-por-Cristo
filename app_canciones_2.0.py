@@ -75,7 +75,7 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. LÓGICA DE TRANSPOSICIÓN CORREGIDA Y DETECCIÓN DE TONO
+# 4. LÓGICA DE TRANSPOSICIÓN Y DETECCIÓN DE TONO
 NOTAS_CROMATICAS = [
     "C",
     "C#",
@@ -160,15 +160,16 @@ def detectar_tono_principal(texto_acordes):
 
 
 def renderizar_bloques_color(texto_acordes):
-    """Convierte el formato 'Sección // Acordes //' en bloques visuales con resaltado."""
-    lineas = texto_acordes.split("\n")
-    html_output = ""
-
-    # Indicador de Tono
+    """Convierte el formato 'Sección // Acordes //' en bloques visuales HTML limpios."""
     tono_detectado = detectar_tono_principal(texto_acordes)
-    html_output += (
-        f'<div class="badge-tono">🎵 Tonalidad actual: {tono_detectado}</div>'
+
+    # 1. Mostrar badge de Tonalidad
+    st.markdown(
+        f'<div class="badge-tono">🎵 Tonalidad actual: {tono_detectado}</div>',
+        unsafe_allow_html=True,
     )
+
+    lineas = texto_acordes.split("\n")
 
     for linea in lineas:
         if "//" in linea:
@@ -180,7 +181,9 @@ def renderizar_bloques_color(texto_acordes):
             clase_badge = "badge-default"
             if "intro" in sec_lower:
                 clase_badge = "badge-intro"
-            elif "estrofa" in sec_lower or "verso" in sec_lower:
+            elif (
+                "estrofa" in sec_lower or "verso" in sec_lower or "est" in sec_lower
+            ):
                 clase_badge = "badge-estrofa"
             elif "coro" in sec_lower or "refrão" in sec_lower:
                 clase_badge = "badge-coro"
@@ -189,19 +192,23 @@ def renderizar_bloques_color(texto_acordes):
             elif "puente" in sec_lower or "ponte" in sec_lower:
                 clase_badge = "badge-puente"
 
-            html_output += f"""
-            <div style="margin-bottom: 12px; background: #020617; padding: 10px; border-radius: 8px; border: 1px solid #1e293b;">
-                <span class="{clase_badge}">{nombre_sec}</span>
-                <p style="font-family: monospace; font-size: 18px; color: #38bdf8; margin: 8px 0 0 0; font-weight: bold; letter-spacing: 1px;">
-                    {acordes_sec}
-                </p>
-            </div>
-            """
+            # HTML en una sola línea sin espacios/indentación inicial para evitar bloques de código en Streamlit
+            html_tarjeta = (
+                f'<div style="margin-bottom: 12px; background: #020617; padding:'
+                f' 10px; border-radius: 8px; border: 1px solid #1e293b;"><span'
+                f' class="{clase_badge}">{nombre_sec}</span><p'
+                ' style="font-family: monospace; font-size: 18px; color:'
+                ' #38bdf8; margin: 8px 0 0 0; font-weight: bold; letter-spacing:'
+                f' 1px;">{acordes_sec}</p></div>'
+            )
+            st.markdown(html_tarjeta, unsafe_allow_html=True)
         else:
             if linea.strip():
-                html_output += f"<p style='font-family: monospace; font-size: 16px;'>{linea}</p>"
-
-    st.markdown(html_output, unsafe_allow_html=True)
+                st.markdown(
+                    f"<p style='font-family: monospace; font-size:"
+                    f" 16px;'>{linea}</p>",
+                    unsafe_allow_html=True,
+                )
 
 
 # 5. PARSEADOR DE CIFRA CLUB SIN MARCAS DE TIEMPO
