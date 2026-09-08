@@ -426,68 +426,67 @@ with pestana_agregar:
                 if busqueda_cifra:
                     with st.spinner("Buscando en Cifra Club..."):
                         try:
-                            # API directa de sugerencias de Cifra Club
-                            url_api = f"https://api.cifraclub.com.br/v2/search/?q={requests.utils.quote(busqueda_cifra)}&limit=10"
+                            from bs4 import BeautifulSoup
+
+                            # Búsqueda directa sobre el motor principal de Cifra Club
+                            url_search = f"https://www.cifraclub.com/?q={requests.utils.quote(busqueda_cifra)}"
                             headers = {
                                 "User-Agent": (
                                     "Mozilla/5.0 (Windows NT 10.0; Win64;"
                                     " x64) AppleWebKit/537.36 (KHTML, like"
                                     " Gecko) Chrome/120.0.0.0 Safari/537.36"
-                                ),
-                                "Accept": "application/json, text/plain, */*",
-                                "Origin": "https://www.cifraclub.com",
-                                "Referer": "https://www.cifraclub.com/",
+                                )
                             }
                             res = requests.get(
-                                url_api, headers=headers, timeout=10
+                                url_search, headers=headers, timeout=10
                             )
 
                             if res.status_code == 200:
-                                datos = res.json()
+                                soup = BeautifulSoup(res.text, "html.parser")
                                 resultados = []
 
-                                listado = (
-                                    datos.get("docs", [])
-                                    if isinstance(datos, dict)
-                                    else []
-                                )
-                                for item in listado:
-                                    if item.get("type") == "cifra" or "url" in item:
-                                        artist = item.get("artist", "")
-                                        title = item.get(
-                                            "title", item.get("value", "")
+                                # Extraer enlaces de canciones encontradas en los resultados
+                                for a in soup.find_all("a", href=True):
+                                    href = a["href"]
+                                    if (
+                                        href.startswith("/")
+                                        and href.count("/") >= 3
+                                        and not any(
+                                            x in href
+                                            for x in [
+                                                "/letra/",
+                                                "/blog/",
+                                                "/lista/",
+                                                "/aprender/",
+                                            ]
                                         )
-                                        dns = item.get("dns", "")
-                                        url_path = item.get("url", "")
-
-                                        if dns and url_path:
-                                            link = f"https://www.cifraclub.com/{dns}/{url_path}/"
-                                            label = (
-                                                f"{title} - {artist}"
-                                                if artist
-                                                else title
-                                            )
-                                            resultados.append({
-                                                "label": label,
-                                                "url": link,
-                                            })
+                                    ):
+                                        texto = a.get_text(strip=True)
+                                        if texto and len(texto) > 2:
+                                            link = f"https://www.cifraclub.com{href}"
+                                            if not any(
+                                                r["url"] == link
+                                                for r in resultados
+                                            ):
+                                                resultados.append({
+                                                    "label": texto,
+                                                    "url": link,
+                                                })
 
                                 if resultados:
                                     st.session_state["resultados_cifra"] = (
-                                        resultados
+                                        resultados[:10]
                                     )
                                 else:
                                     st.warning(
-                                        "No se encontraron coincidencias"
-                                        " exactas. Intenta con palabras clave"
-                                        " más sencillas o la opción de enlace"
-                                        " directo."
+                                        "No se encontraron canciones. Intenta"
+                                        " con palabras clave más sencillas o la"
+                                        " opción 'Pegar Enlace Directo'."
                                     )
                             else:
                                 st.error(
                                     f"Error al conectar con Cifra Club (Código"
-                                    f" {res.status_code}). Usa la opción de"
-                                    " enlace directo."
+                                    f" {res.status_code})."
                                 )
                         except Exception as e:
                             st.error(f"Error en la búsqueda: {e}")
