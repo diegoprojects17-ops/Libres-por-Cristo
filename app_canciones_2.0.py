@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 import re
+import urllib.parse
 from PIL import Image
 import requests
 import streamlit as st
@@ -10,18 +11,24 @@ st.set_page_config(
     page_title="Libres por Cristo", page_icon="🎹", layout="centered"
 )
 
-# Estilo visual
+# Estilos CSS personalizados (Modo oscuro OLED + Chips de colores para secciones)
 st.markdown(
     """
     <style>
     .stApp {
-        background-color: #0f172a;
+        background-color: #090d16;
         color: #f8fafc;
     }
     div[data-testid="stCodeBlock"] {
         background-color: #020617 !important;
         border-left: 5px solid #38bdf8 !important;
     }
+    .badge-intro { background-color: #1e3a8a; color: #93c5fd; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+    .badge-estrofa { background-color: #065f46; color: #6ee7b7; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+    .badge-coro { background-color: #854d0e; color: #fde047; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+    .badge-precoro { background-color: #9a3412; color: #fdba74; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+    .badge-puente { background-color: #581c87; color: #c084fc; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+    .badge-default { background-color: #334155; color: #cbd5e1; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -34,12 +41,11 @@ MASTER_KEY = st.secrets.get(
 )
 OCR_KEY = st.secrets.get("OCR_KEY", "K87431578588957")
 
-# 3. FUNCIONES DE BASE DE DATOS EN LA NUBE
 URL_JSONBIN = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
 HEADERS = {"Content-Type": "application/json", "X-Master-Key": MASTER_KEY}
 
 
-# Cargar datos desde la nube
+# 3. FUNCIONES EN LA NUBE
 @st.cache_data(ttl=5)
 def cargar_datos_nube():
     try:
@@ -54,7 +60,6 @@ def cargar_datos_nube():
         return {"canciones": {}, "calendario": {}}
 
 
-# Guardar datos permanentes en la nube
 def guardar_datos_nube(datos):
     try:
         respuesta = requests.put(URL_JSONBIN, json=datos, headers=HEADERS)
@@ -69,7 +74,7 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. LÓGICA DE TRANSPOSICIÓN DE ACORDES
+# 4. LÓGICA DE TRANSPOSICIÓN Y RENDERIZADO VISUAL
 NOTAS_CROMATICAS = [
     "C",
     "C#",
@@ -118,22 +123,59 @@ def transponer_texto_acordes(texto, semitonos):
         palabras = linea.split()
         if palabras and sum(
             1 for p in palabras if re.match(r"^[A-G][#b]?", p)
-        ) >= len(palabras) * 0.5:
+        ) >= len(palabras) * 0.4:
             lineas_transp.append(transponer_acorde(linea, semitonos))
         else:
             lineas_transp.append(linea)
     return "\n".join(lineas_transp)
 
 
-# 5. PARSEADOR DE ESTRUCTURA Y ACORDES DESDE CIFRA CLUB
+def renderizar_bloques_color(texto_acordes):
+    """Convierte el formato 'Sección // Acordes //' en bloques visuales con resaltado."""
+    lineas = texto_acordes.split("\n")
+    html_output = ""
+
+    for linea in lineas:
+        if "//" in linea:
+            partes = linea.split("//")
+            nombre_sec = partes[0].strip()
+            acordes_sec = partes[1].strip() if len(partes) > 1 else ""
+
+            sec_lower = nombre_sec.lower()
+            clase_badge = "badge-default"
+            if "intro" in sec_lower:
+                clase_badge = "badge-intro"
+            elif "estrofa" in sec_lower or "verso" in sec_lower:
+                clase_badge = "badge-estrofa"
+            elif "coro" in sec_lower or "refrão" in sec_lower:
+                clase_badge = "badge-coro"
+            elif "pre" in sec_lower:
+                clase_badge = "badge-precoro"
+            elif "puente" in sec_lower or "ponte" in sec_lower:
+                clase_badge = "badge-puente"
+
+            html_output += f"""
+            <div style="margin-bottom: 12px; background: #020617; padding: 10px; border-radius: 8px; border: 1px solid #1e293b;">
+                <span class="{clase_badge}">{nombre_sec}</span>
+                <p style="font-family: monospace; font-size: 18px; color: #38bdf8; margin: 8px 0 0 0; font-weight: bold; letter-spacing: 1px;">
+                    {acordes_sec}
+                </p>
+            </div>
+            """
+        else:
+            if linea.strip():
+                html_output += f"<p style='font-family: monospace; font-size: 16px;'>{linea}</p>"
+
+    st.markdown(html_output, unsafe_allow_html=True)
+
+
+# 5. PARSEADOR DE CIFRA CLUB
 def parsear_acordes_cifra(soup):
     cifra_pre = soup.find("pre")
     if not cifra_pre:
         return ""
 
     secciones_resumen = []
-
-    # Diccionario de traducción de secciones desde Cifra Club (Portugués / Español)
     traducciones = {
         "intro": "Intro",
         "introdução": "Intro",
@@ -148,82 +190,74 @@ def parsear_acordes_cifra(soup):
         "interlúdio": "Puente",
         "solo": "Solo",
         "final": "Final",
+        "outro": "Final",
     }
+    patron_acorde = r"^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?[0-9]?(\/[A-G][#b]?)?$"
 
-    seccion_actual = "Intro"
+    seccion_actual = None
     acordes_seccion = []
 
-    # Extraer encabezados (<b>) y acordes manteniendo el orden de las secciones
-    for elem in cifra_pre.find_all(["b", "a"]):
-        texto_elem = elem.get_text().strip()
+    for elem in cifra_pre.find_all(["b", "a", "span"]):
+        texto = elem.get_text().strip()
+        if not texto:
+            continue
 
-        # Si es una etiqueta <b> que indica inicio de sección ej: [Primeira Parte]
+        texto_lower = texto.lower().replace("[", "").replace("]", "").strip()
+
+        es_seccion = False
         if elem.name == "b" and (
-            "[" in texto_elem
-            or "parte" in texto_elem.lower()
-            or "refrão" in texto_elem.lower()
-            or "intro" in texto_elem.lower()
+            texto_lower in traducciones
+            or any(
+                k in texto_lower
+                for k in ["parte", "refrão", "intro", "coro", "verso", "ponte"]
+            )
         ):
-            if acordes_seccion:
+            es_seccion = True
+
+        if es_seccion:
+            if seccion_actual and acordes_seccion:
                 cadena = " ".join(acordes_seccion)
                 secciones_resumen.append(f"{seccion_actual} // {cadena} //")
                 acordes_seccion = []
 
-            # Limpiar nombre de sección
-            nombre_limpio = re.sub(r"[\[\]]", "", texto_elem).strip().lower()
             seccion_actual = traducciones.get(
-                nombre_limpio, nombre_limpio.capitalize()
+                texto_lower, texto_lower.capitalize()
             )
+        elif elem.name in ["b", "a"] and re.match(patron_acorde, texto):
+            if not seccion_actual:
+                seccion_actual = "Intro"
+            if not acordes_seccion or acordes_seccion[-1] != texto:
+                acordes_seccion.append(texto)
 
-        # Si es un acorde reconocido en las etiquetas <b> o <a> de Cifra Club
-        elif re.match(
-            r"^[A-G][#b]?(m|maj|min|dim|aug|sus)?[0-9]?(\/[A-G][#b]?)?$",
-            texto_elem,
-        ):
-            if texto_elem not in acordes_seccion:
-                acordes_seccion.append(texto_elem)
-
-    # Añadir la última sección procesada
-    if acordes_seccion:
+    if seccion_actual and acordes_seccion:
         cadena = " ".join(acordes_seccion)
         secciones_resumen.append(f"{seccion_actual} // {cadena} //")
 
-    # Respaldo si no hay etiquetas HTML explicitas
     if not secciones_resumen:
         lineas = cifra_pre.get_text().split("\n")
-        sec_temp = "Estrofa"
+        sec_temp = "Intro"
         acordes_temp = []
 
         for linea in lineas:
             linea_str = linea.strip()
-            if any(
-                k in linea_str.lower()
-                for k in [
-                    "estrofa",
-                    "coro",
-                    "verso",
-                    "puente",
-                    "pre-coro",
-                    "intro",
-                    "refrão",
-                    "parte",
-                ]
-            ):
+            linea_lower = (
+                linea_str.lower().replace("[", "").replace("]", "").strip()
+            )
+
+            if any(k in linea_lower for k in traducciones.keys()):
                 if acordes_temp:
                     secciones_resumen.append(
                         f"{sec_temp} // {' '.join(acordes_temp)} //"
                     )
                     acordes_temp = []
-                sec_temp = linea_str.replace("[", "").replace("]", "").capitalize()
+                sec_temp = traducciones.get(
+                    linea_lower, linea_str.capitalize()
+                )
             else:
-                palabras = linea_str.split()
-                for p in palabras:
-                    if re.match(
-                        r"^[A-G][#b]?(m|maj|min|dim|aug|sus)?[0-9]?(\/[A-G][#b]?)?$",
-                        p,
-                    ):
-                        if p not in acordes_temp:
-                            acordes_temp.append(p)
+                for palabra in linea_str.split():
+                    if re.match(patron_acorde, palabra):
+                        if not acordes_temp or acordes_temp[-1] != palabra:
+                            acordes_temp.append(palabra)
 
         if acordes_temp:
             secciones_resumen.append(
@@ -233,7 +267,7 @@ def parsear_acordes_cifra(soup):
     return "\n".join(secciones_resumen)
 
 
-# Cargar la base de datos activa
+# Carga Inicial de Datos
 db = cargar_datos_nube()
 cancionero = db.get("canciones", {})
 calendario = db.get("calendario", {})
@@ -241,28 +275,25 @@ calendario = db.get("calendario", {})
 if "lista_servicio" not in st.session_state:
     st.session_state.lista_servicio = []
 
-# Encabezado principal
+# Encabezado
 st.markdown(
     """
-    <div style='background-color: #1e293b; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;'>
+    <div style='background-color: #0f172a; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 20px; border: 1px solid #1e293b;'>
         <h1 style='color: #f8fafc; margin: 0; font-size: 26px;'>🎹 Libres por Cristo</h1>
-        <p style='color: #38bdf8; margin: 5px 0 0 0; font-size: 14px;'>Agenda y lista de canciones digital</p>
+        <p style='color: #38bdf8; margin: 5px 0 0 0; font-size: 14px;'>Cancionero Digital & Gestión de Servicios</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# ==========================================
-# BARRA LATERAL (BORRADOR)
-# ==========================================
+# BARRA LATERAL (BORRADOR DE REPERTORIO)
 with st.sidebar:
     st.header("📋 Lista Borrador")
-
-    canciones_disponibles = [
-        datos["titulo_real"] for datos in cancionero.values()
-    ]
+    canciones_disponibles = sorted(
+        [datos["titulo_real"] for datos in cancionero.values()]
+    )
     cancion_a_añadir = st.selectbox(
-        "Añadir canción al borrador:",
+        "Añadir rápida al borrador:",
         ["-- Seleccionar --"] + canciones_disponibles,
     )
 
@@ -272,14 +303,13 @@ with st.sidebar:
     ):
         if cancion_a_añadir not in st.session_state.lista_servicio:
             st.session_state.lista_servicio.append(cancion_a_añadir)
-            st.success(f"¡{cancion_a_añadir} añadida!")
+            st.success(f"¡{cancion_a_añadir} agregada!")
         else:
-            st.warning("Esta canción ya está en tu borrador.")
+            st.warning("Ya está en tu borrador.")
 
     st.write("---")
-
     if st.session_state.lista_servicio:
-        st.write("**Seleccionadas:**")
+        st.write("**Canciones seleccionadas:**")
         for i, cancion in enumerate(st.session_state.lista_servicio, 1):
             st.write(f"**{i}. {cancion}**")
 
@@ -287,96 +317,98 @@ with st.sidebar:
             st.session_state.lista_servicio = []
             st.rerun()
 
-# ==========================================
 # PESTAÑAS PRINCIPALES
-# ==========================================
 pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
     "🔍 Buscar Canciones",
     "📅 Calendario de Servicios",
     "➕ Agregar Canción",
 ])
 
-# --- PESTAÑA 1: BUSCADOR ---
+# --- PESTAÑA 1: BUSCADOR DE CANCIONES ---
 with pestana_buscar:
     busqueda = st.text_input(
-        "🔍 Busca por nombre de canción o palabra clave:", ""
+        "🔍 Busca por título de canción:",
+        placeholder="Ej: Cuan Grande es Él...",
     )
     busqueda_limpia = busqueda.lower().strip()
-
-    clave_seleccionada = None
 
     if busqueda_limpia:
         coincidencias = [c for c in cancionero.keys() if busqueda_limpia in c]
 
-        if len(coincidencias) == 0:
-            st.error("❌ No se encontró ninguna canción con ese nombre.")
-        elif len(coincidencias) == 1:
-            clave_seleccionada = coincidencias[0]
+        if not coincidencias:
+            st.error("❌ No se encontró ninguna canción.")
         else:
-            st.warning("🔍 Varias opciones encontradas. Elige una:")
             opciones_pantalla = {
                 cancionero[c]["titulo_real"]: c for c in coincidencias
             }
             seleccion = st.selectbox(
-                "Elige la canción:", list(opciones_pantalla.keys())
+                "Resultados encontrados:", list(opciones_pantalla.keys())
             )
-            clave_seleccionada = opciones_pantalla[seleccion]
+            clave_sel = opciones_pantalla[seleccion]
+            cancion = cancionero[clave_sel]
 
-        if clave_seleccionada:
-            cancion = cancionero[clave_seleccionada]
-            st.subheader(f"🎵 {cancion['titulo_real']}")
+            col_t, col_bpm = st.columns([3, 1])
+            with col_t:
+                st.subheader(f"🎵 {cancion['titulo_real']}")
+            with col_bpm:
+                bpm_val = cancion.get("bpm", "N/A")
+                st.metric("Tempo", f"⏱️ {bpm_val} BPM")
 
-            with st.expander("🛠️ Opciones de edición / eliminar"):
-                nuevos_acordes_editados = st.text_area(
-                    "Editar acordes:",
-                    value=cancion["acordes"],
-                    height=150,
-                    key=f"edit_{clave_seleccionada}",
+            # Transposición interactiva rápida
+            semitonos_v = st.slider(
+                "Transponer tono en vivo (Semitonos):", -6, 6, 0
+            )
+            acordes_mostrados = transponer_texto_acordes(
+                cancion["acordes"], semitonos_v
+            )
+
+            # Visualización con bloques de colores
+            renderizar_bloques_color(acordes_mostrados)
+
+            with st.expander("🛠️ Editar datos o acordes"):
+                edit_titulo = st.text_input(
+                    "Título:", value=cancion["titulo_real"]
                 )
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button(
-                        "💾 Guardar Cambios",
-                        key=f"btn_save_{clave_seleccionada}",
-                    ):
-                        cancionero[clave_seleccionada]["acordes"] = (
-                            nuevos_acordes_editados.strip()
+                edit_bpm = st.text_input(
+                    "BPM / Tempo:", value=cancion.get("bpm", "")
+                )
+                edit_acordes = st.text_area(
+                    "Acordes:", value=cancion["acordes"], height=150
+                )
+
+                col_s, col_d = st.columns(2)
+                with col_s:
+                    if st.button("💾 Guardar Cambios"):
+                        cancionero[clave_sel]["titulo_real"] = (
+                            edit_titulo.strip()
                         )
+                        cancionero[clave_sel]["bpm"] = edit_bpm.strip()
+                        cancionero[clave_sel]["acordes"] = edit_acordes.strip()
                         db["canciones"] = cancionero
                         if guardar_datos_nube(db):
-                            st.success("¡Canción editada!")
+                            st.success("¡Canción actualizada!")
                             st.rerun()
-                with col2:
-                    if st.button(
-                        "🗑️ Eliminar", key=f"btn_del_{clave_seleccionada}"
-                    ):
-                        del cancionero[clave_seleccionada]
+                with col_d:
+                    if st.button("🗑️ Eliminar Canción"):
+                        del cancionero[clave_sel]
                         db["canciones"] = cancionero
                         if guardar_datos_nube(db):
-                            st.success("¡Eliminada!")
+                            st.success("Canción eliminada.")
                             st.rerun()
 
-            st.code(cancion["acordes"], language="text")
-    else:
-        st.info(
-            "Escribe arriba para buscar acordes o ve al Calendario para ver el"
-            " repertorio."
-        )
-
-# --- PESTAÑA 2: CALENDARIO DE SERVICIOS ---
+# --- PESTAÑA 2: CALENDARIO DE SERVICIOS Y MODO EN VIVO ---
 with pestana_calendario:
-    st.subheader("📅 Agenda de Servicios y Alabanzas")
-
     opcion_cal = st.radio(
-        "¿Qué deseas hacer?",
+        "Modalidad:",
         ["Ver Agenda de Servicios", "Programar Nuevo Servicio ➕"],
+        horizontal=True,
     )
 
     if opcion_cal == "Programar Nuevo Servicio ➕":
         st.markdown("### 📝 Programar un Servicio")
-        fecha_servicio = st.date_input("Fecha del Servicio:", datetime.now())
+        fecha_servicio = st.date_input("Fecha:", datetime.now())
         tipo_servicio = st.selectbox(
-            "Tipo de Servicio / Reunión:",
+            "Evento:",
             [
                 "Servicio Dominical",
                 "Reunión de Jóvenes",
@@ -385,46 +417,33 @@ with pestana_calendario:
             ],
         )
 
-        st.write("**Selecciona las canciones para este día:**")
         canciones_para_fecha = st.multiselect(
-            "Escribe o selecciona las canciones:",
+            "Selecciona el repertorio:",
             canciones_disponibles,
-            default=(
-                st.session_state.lista_servicio
-                if st.session_state.lista_servicio
-                else []
-            ),
+            default=st.session_state.lista_servicio,
         )
-
         notas_adicionales = st.text_input(
-            "Indicaciones especiales (Ej: Tocar en tono Sol, ensayo a las 4"
-            " PM):"
+            "Observaciones (Ej: Tocar en Sol, Ensayo 4 PM):"
         )
 
-        if st.button("💾 Guardar en la Agenda"):
+        if st.button("💾 Guardar en Agenda"):
             if canciones_para_fecha:
                 fecha_str = fecha_servicio.strftime("%Y-%m-%d")
-
                 db["calendario"][fecha_str] = {
                     "tipo": tipo_servicio,
                     "canciones": canciones_para_fecha,
                     "notas": notas_adicionales,
                 }
                 if guardar_datos_nube(db):
-                    st.success(f"¡Servicio para el {fecha_str} guardado!")
+                    st.success("¡Servicio agendado!")
                     st.session_state.lista_servicio = []
                     st.rerun()
-            else:
-                st.error("Selecciona al menos una canción.")
 
     elif opcion_cal == "Ver Agenda de Servicios":
         if not calendario:
-            st.info(
-                "Aún no hay servicios programados en la agenda. ¡Programa el"
-                " primero!"
-            )
+            st.info("No hay servicios agendados aún.")
         else:
-            fechas_ordenadas = sorted(calendario.keys(), reverse=False)
+            fechas_ordenadas = sorted(calendario.keys())
             fechas_formateadas = {
                 datetime.strptime(f, "%Y-%m-%d").strftime("%d/%m/%Y")
                 + f" - {calendario[f]['tipo']}": f
@@ -432,29 +451,83 @@ with pestana_calendario:
             }
 
             seleccion_fecha_label = st.selectbox(
-                "Elige la fecha a consultar:", list(fechas_formateadas.keys())
+                "Selecciona una fecha:", list(fechas_formateadas.keys())
             )
             clave_fecha = fechas_formateadas[seleccion_fecha_label]
-
             info_servicio = calendario[clave_fecha]
 
             st.markdown(f"### 🎼 Repertorio: {info_servicio['tipo']}")
             if info_servicio["notas"]:
-                st.info(f"📌 **Nota:** {info_servicio['notas']}")
+                st.info(f"📌 **Observación:** {info_servicio['notas']}")
+
+            # Generar texto limpio para compartir por WhatsApp
+            texto_wa = (
+                f"*REPERTORIO {info_servicio['tipo'].upper()}*\n📅"
+                f" *Fecha:* {clave_fecha}\n\n"
+            )
+            for idx, c_nom in enumerate(info_servicio["canciones"], 1):
+                bpm_str = ""
+                for c_db in cancionero.values():
+                    if (
+                        c_db["titulo_real"] == c_nom
+                        and c_db.get("bpm")
+                    ):
+                        bpm_str = f" (⏱️ {c_db['bpm']} BPM)"
+                texto_wa += f"{idx}. {c_nom}{bpm_str}\n"
+
+            if info_servicio["notas"]:
+                texto_wa += f"\n📌 *Notas:* {info_servicio['notas']}"
+
+            url_wa = (
+                f"https://api.whatsapp.com/send?text={urllib.parse.quote(texto_wa)}"
+            )
+            st.markdown(
+                f"[📲 Compartir Repertorio en WhatsApp]({url_wa})",
+                unsafe_allow_html=True,
+            )
 
             st.write("---")
 
-            for i, nombre_c in enumerate(info_servicio["canciones"], 1):
-                acordes_c = "Acordes no encontrados"
+            # MODO EN VIVO INTERACTIVO (CARRUSEL)
+            if st.checkbox("🚀 MODO EN VIVO (Lectura Gigante para Servicio)"):
+                cancion_idx = st.slider(
+                    "Cambiar de canción:",
+                    1,
+                    len(info_servicio["canciones"]),
+                    1,
+                )
+                nombre_c = info_servicio["canciones"][cancion_idx - 1]
+
+                acordes_c = "Sin acordes"
+                bpm_c = "N/A"
                 for c_item in cancionero.values():
                     if c_item["titulo_real"] == nombre_c:
                         acordes_c = c_item["acordes"]
+                        bpm_c = c_item.get("bpm", "N/A")
                         break
 
-                with st.expander(f"🎵 {i}. {nombre_c}", expanded=True):
-                    st.code(acordes_c, language="text")
+                st.markdown(
+                    f"<h2 style='text-align: center; color: #38bdf8;'>{cancion_idx}. {nombre_c}</h2>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f"<p style='text-align: center;'>⏱️ Tempo: <b>{bpm_c} BPM</b></p>",
+                    unsafe_allow_html=True,
+                )
 
-            if st.button("🗑️ Eliminar este servicio de la agenda"):
+                renderizar_bloques_color(acordes_c)
+
+            else:
+                for i, nombre_c in enumerate(info_servicio["canciones"], 1):
+                    acordes_c = "Acordes no registrados"
+                    for c_item in cancionero.values():
+                        if c_item["titulo_real"] == nombre_c:
+                            acordes_c = c_item["acordes"]
+                            break
+                    with st.expander(f"🎵 {i}. {nombre_c}", expanded=True):
+                        renderizar_bloques_color(acordes_c)
+
+            if st.button("🗑️ Eliminar este servicio"):
                 del db["calendario"][clave_fecha]
                 if guardar_datos_nube(db):
                     st.success("Servicio eliminado.")
@@ -462,9 +535,9 @@ with pestana_calendario:
 
 # --- PESTAÑA 3: AGREGAR CANCIÓN ---
 with pestana_agregar:
-    st.subheader("📝 Registra una nueva canción")
+    st.subheader("📝 Registrar nueva canción")
     metodo = st.radio(
-        "Elige cómo deseas agregarla:",
+        "Fuente de origen:",
         [
             "Escribir manualmente",
             "Pegar Link Directo de Cifra Club 🎸",
@@ -473,12 +546,13 @@ with pestana_agregar:
     )
 
     if metodo == "Escribir manualmente":
-        nuevo_titulo = st.text_input(
-            "Nombre de la canción (Ej: Cuan grande es el):"
+        nuevo_titulo = st.text_input("Título de la canción:")
+        nuevo_bpm = st.text_input(
+            "BPM / Tempo (Opcional):", placeholder="Ej: 120"
         )
         nuevos_acordes = st.text_area(
             "Estructura y acordes:",
-            placeholder="Estrofa // G C D //\nCoro // G C D //",
+            placeholder="Intro // G D //\nEstrofa // G C D //",
         )
 
         if st.button("💾 Guardar Canción"):
@@ -492,27 +566,23 @@ with pestana_agregar:
                     .replace("ó", "o")
                     .replace("ú", "u")
                 )
-
                 cancionero[clave_nueva] = {
                     "titulo_real": nuevo_titulo.strip(),
+                    "bpm": nuevo_bpm.strip(),
                     "acordes": nuevos_acordes.strip(),
                 }
                 db["canciones"] = cancionero
                 if guardar_datos_nube(db):
-                    st.success(f"¡{nuevo_titulo} guardada!")
+                    st.success("¡Canción guardada!")
                     st.rerun()
-            else:
-                st.error("Por favor completa el título y los acordes.")
 
     elif metodo == "Pegar Link Directo de Cifra Club 🎸":
-        st.markdown("### 🎸 Extraer de Cifra Club via URL")
-
         url_directa = st.text_input(
-            "Pega el link de la canción en Cifra Club:",
+            "Link de Cifra Club:",
             placeholder="https://www.cifraclub.com/marcos-witt/cuan-grande-es-el/",
         )
 
-        if st.button("📥 Importar desde URL"):
+        if st.button("📥 Importar desde Cifra Club"):
             if url_directa:
                 st.session_state["url_cifra_seleccionada"] = url_directa
             else:
@@ -520,27 +590,21 @@ with pestana_agregar:
 
         if "url_cifra_seleccionada" in st.session_state:
             st.write("---")
-            st.markdown("#### 🎼 Ajustar Tonalidad y Confirmar:")
-
             semitonos_dict = {
-                "Tono Original (Sin cambio)": 0,
+                "Tono Original": 0,
                 "+1 Semitono": 1,
-                "+2 Semitonos (1 Tono arriba)": 2,
+                "+2 Semitonos": 2,
                 "+3 Semitonos": 3,
-                "+4 Semitonos (2 Tonos arriba)": 4,
-                "+5 Semitonos": 5,
                 "-1 Semitono": -1,
-                "-2 Semitonos (1 Tono abajo)": -2,
-                "-3 Semitonos": -3,
+                "-2 Semitonos": -2,
             }
-
             opcion_trans = st.selectbox(
-                "Elige la transposición:", list(semitonos_dict.keys())
+                "Transposición:", list(semitonos_dict.keys())
             )
             semitonos = semitonos_dict[opcion_trans]
 
-            if st.button("✨ Procesar e Extraer Acordes"):
-                with st.spinner("Analizando estructura de Cifra Club..."):
+            if st.button("✨ Extraer y Procesar Estructura"):
+                with st.spinner("Analizando bloques y acordes..."):
                     try:
                         from bs4 import BeautifulSoup
 
@@ -549,8 +613,7 @@ with pestana_agregar:
                             headers={
                                 "User-Agent": (
                                     "Mozilla/5.0 (Windows NT 10.0; Win64;"
-                                    " x64) AppleWebKit/537.36 (KHTML, like"
-                                    " Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                    " x64) Chrome/120.0.0.0 Safari/537.36"
                                 )
                             },
                         )
@@ -573,8 +636,7 @@ with pestana_agregar:
                             )
                             st.session_state["temp_titulo"] = titulo_real
                             st.session_state["temp_acordes"] = texto_transp
-                            st.success("¡Estructura y acordes extraídos!")
-
+                            st.success("¡Estructura extraída exitosamente!")
                             del st.session_state["url_cifra_seleccionada"]
                             st.rerun()
                         else:
@@ -587,25 +649,13 @@ with pestana_agregar:
 
     elif metodo == "Tomar una foto / Cargar Imagen 📸":
         foto = st.file_uploader(
-            "Sube una foto o tómala con tu cámara:", type=["jpg", "jpeg", "png"]
+            "Cargar imagen de la partitura / cifrado:",
+            type=["jpg", "jpeg", "png"],
         )
-
         if foto is not None:
-            imagen_original = Image.open(foto)
-            st.image(imagen_original, caption="Foto cargada", width=280)
-
-            col_engine1, col_engine2 = st.columns(2)
-
-            with col_engine1:
-                btn_digitalizar = st.button("🪄 Digitalizar (Motor Normal)")
-            with col_engine2:
-                btn_digitalizar_v2 = st.button(
-                    "⚡ Digitalizar (Motor Avanzado Engine 2)"
-                )
-
-            if btn_digitalizar or btn_digitalizar_v2:
-                engine_usado = "2" if btn_digitalizar_v2 else "1"
-                with st.spinner("Procesando imagen con OCR..."):
+            st.image(Image.open(foto), caption="Imagen cargada", width=250)
+            if st.button("🪄 Digitalizar con OCR"):
+                with st.spinner("Escaneando texto..."):
                     try:
                         foto.seek(0)
                         files = {
@@ -614,12 +664,8 @@ with pestana_agregar:
                         payload = {
                             "apikey": OCR_KEY,
                             "language": "spa",
-                            "isOverlayRequired": "False",
-                            "detectOrientation": "True",
-                            "scale": "True",
-                            "OCREngine": engine_usado,
+                            "OCREngine": "2",
                         }
-
                         respuesta = requests.post(
                             "https://api.ocr.space/parse/image",
                             files=files,
@@ -628,60 +674,43 @@ with pestana_agregar:
                         )
                         resultado = respuesta.json()
 
-                        if resultado.get("OCRExitCode") == 1 and resultado.get(
-                            "ParsedResults"
+                        if (
+                            resultado.get("OCRExitCode") == 1
+                            and resultado.get("ParsedResults")
                         ):
-                            texto_extraido = resultado["ParsedResults"][0].get(
+                            texto = resultado["ParsedResults"][0].get(
                                 "ParsedText", ""
                             )
-
-                            if texto_extraido.strip():
-                                lineas = [
-                                    l.strip()
-                                    for l in texto_extraido.split("\n")
-                                    if l.strip()
-                                ]
-                                if lineas:
-                                    st.session_state["temp_titulo"] = lineas[0]
-                                    st.session_state["temp_acordes"] = "\n".join(
-                                        lineas[1:]
-                                    )
-                                else:
-                                    st.session_state["temp_titulo"] = (
-                                        "Nueva Canción"
-                                    )
-                                    st.session_state["temp_acordes"] = (
-                                        texto_extraido
-                                    )
-                                st.rerun()
-                            else:
-                                st.error(
-                                    "No se detectó texto legible. Intenta con"
-                                    " el botón 'Motor Avanzado Engine 2'."
-                                )
-                        else:
-                            mensaje_err = resultado.get(
-                                "ErrorMessage", ["Error desconocido"]
-                            )[0]
-                            st.error(f"Error al leer la imagen: {mensaje_err}")
+                            lineas = [
+                                l.strip() for l in texto.split("\n") if l.strip()
+                            ]
+                            st.session_state["temp_titulo"] = (
+                                lineas[0] if lineas else "Nueva Canción"
+                            )
+                            st.session_state["temp_acordes"] = "\n".join(
+                                lineas[1:]
+                            )
+                            st.rerun()
                     except Exception as e:
-                        st.error(f"Error de conexión con el servicio OCR: {e}")
+                        st.error(f"Error en OCR: {e}")
 
     # Bloque de Confirmación y Guardado
     if "temp_titulo" in st.session_state:
         st.write("---")
-        st.subheader("🔍 Verifica y Guarda la Canción:")
-
-        titulo_final = st.text_input(
-            "Confirmar Título:", st.session_state["temp_titulo"]
+        st.subheader("🔍 Confirmación Final:")
+        titulo_f = st.text_input(
+            "Título:", value=st.session_state["temp_titulo"]
         )
-        acordes_finales = st.text_area(
-            "Confirmar Acordes:", st.session_state["temp_acordes"], height=250
+        bpm_f = st.text_input("BPM / Tempo:", placeholder="Ej: 128")
+        acordes_f = st.text_area(
+            "Acordes Extraídos:",
+            value=st.session_state["temp_acordes"],
+            height=200,
         )
 
-        if st.button("💾 Guardar Canción en el Cancionero"):
+        if st.button("💾 Guardar Definitivamente"):
             clave_nueva = (
-                titulo_final.lower()
+                titulo_f.lower()
                 .strip()
                 .replace("á", "a")
                 .replace("é", "e")
@@ -689,14 +718,14 @@ with pestana_agregar:
                 .replace("ó", "o")
                 .replace("ú", "u")
             )
-
             cancionero[clave_nueva] = {
-                "titulo_real": titulo_final.strip(),
-                "acordes": acordes_finales.strip(),
+                "titulo_real": titulo_f.strip(),
+                "bpm": bpm_f.strip(),
+                "acordes": acordes_f.strip(),
             }
             db["canciones"] = cancionero
             if guardar_datos_nube(db):
-                st.success(f"¡{titulo_final} guardada exitosamente!")
+                st.success("¡Canción guardada con éxito!")
                 del st.session_state["temp_titulo"]
                 del st.session_state["temp_acordes"]
                 st.rerun()
