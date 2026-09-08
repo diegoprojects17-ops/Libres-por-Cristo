@@ -169,13 +169,21 @@ def renderizar_bloques_color(texto_acordes):
     st.markdown(html_output, unsafe_allow_html=True)
 
 
-# 5. PARSEADOR DE CIFRA CLUB
+# 5. PARSEADOR DE CIFRA CLUB SIN MARCAS DE TIEMPO
 def parsear_acordes_cifra(soup):
     cifra_pre = soup.find("pre")
     if not cifra_pre:
         return ""
 
-    secciones_resumen = []
+    texto_completo = cifra_pre.get_text()
+
+    # Elimina formatos de tiempo (ej. 0:00, 00:00, (1:30), 2m30s)
+    texto_sin_tiempos = re.sub(
+        r"\(?\b\d{1,2}:[0-5]\d\b\)?|\b\d{1,2}m\s?[0-5]?\d?s?\b",
+        "",
+        texto_completo,
+    )
+
     traducciones = {
         "intro": "Intro",
         "introdução": "Intro",
@@ -192,79 +200,75 @@ def parsear_acordes_cifra(soup):
         "final": "Final",
         "outro": "Final",
     }
+
     patron_acorde = r"^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?[0-9]?(\/[A-G][#b]?)?$"
 
-    seccion_actual = None
-    acordes_seccion = []
+    lineas = texto_sin_tiempos.split("\n")
+    secciones_resumen = []
+    sec_actual = None
+    acordes_sec = []
 
-    for elem in cifra_pre.find_all(["b", "a", "span"]):
-        texto = elem.get_text().strip()
-        if not texto:
+    progresiones_registradas = {}
+    contador_estrofas = 0
+
+    for linea in lineas:
+        linea_str = linea.strip()
+        if not linea_str:
             continue
 
-        texto_lower = texto.lower().replace("[", "").replace("]", "").strip()
+        linea_lower = (
+            linea_str.lower().replace("[", "").replace("]", "").strip()
+        )
 
-        es_seccion = False
-        if elem.name == "b" and (
-            texto_lower in traducciones
-            or any(
-                k in texto_lower
-                for k in ["parte", "refrão", "intro", "coro", "verso", "ponte"]
-            )
-        ):
-            es_seccion = True
+        # Comprobar si hay un encabezado explícito
+        es_encabezado = False
+        for clave, nombre_norm in traducciones.items():
+            if clave in linea_lower:
+                es_encabezado = True
+                nuevo_nombre = nombre_norm
+                break
 
-        if es_seccion:
-            if seccion_actual and acordes_seccion:
-                cadena = " ".join(acordes_seccion)
-                secciones_resumen.append(f"{seccion_actual} // {cadena} //")
-                acordes_seccion = []
+        if es_encabezado:
+            if sec_actual and acordes_sec:
+                cadena = " ".join(acordes_sec)
+                secciones_resumen.append(f"{sec_actual} // {cadena} //")
+                acordes_sec = []
+            sec_actual = nuevo_nombre
+            continue
 
-            seccion_actual = traducciones.get(
-                texto_lower, texto_lower.capitalize()
-            )
-        elif elem.name in ["b", "a"] and re.match(patron_acorde, texto):
-            if not seccion_actual:
-                seccion_actual = "Intro"
-            if not acordes_seccion or acordes_seccion[-1] != texto:
-                acordes_seccion.append(texto)
+        # Extraer acordes de la línea
+        palabras = linea_str.split()
+        acordes_linea = [p for p in palabras if re.match(patron_acorde, p)]
 
-    if seccion_actual and acordes_seccion:
-        cadena = " ".join(acordes_seccion)
-        secciones_resumen.append(f"{seccion_actual} // {cadena} //")
+        if acordes_linea:
+            if not sec_actual:
+                prog_key = "-".join(acordes_linea)
+                if prog_key not in progresiones_registradas:
+                    if contador_estrofas == 0:
+                        sec_actual = "Intro"
+                    elif contador_estrofas == 1:
+                        sec_actual = "Estrofa"
+                    else:
+                        sec_actual = "Coro"
+                    progresiones_registradas[prog_key] = sec_actual
+                    contador_estrofas += 1
+                else:
+                    sec_actual = progresiones_registradas[prog_key]
 
-    if not secciones_resumen:
-        lineas = cifra_pre.get_text().split("\n")
-        sec_temp = "Intro"
-        acordes_temp = []
+            for ac in acordes_linea:
+                if not acordes_sec or acordes_sec[-1] != ac:
+                    acordes_sec.append(ac)
 
-        for linea in lineas:
-            linea_str = linea.strip()
-            linea_lower = (
-                linea_str.lower().replace("[", "").replace("]", "").strip()
-            )
+    if sec_actual and acordes_sec:
+        cadena = " ".join(acordes_sec)
+        secciones_resumen.append(f"{sec_actual} // {cadena} //")
 
-            if any(k in linea_lower for k in traducciones.keys()):
-                if acordes_temp:
-                    secciones_resumen.append(
-                        f"{sec_temp} // {' '.join(acordes_temp)} //"
-                    )
-                    acordes_temp = []
-                sec_temp = traducciones.get(
-                    linea_lower, linea_str.capitalize()
-                )
-            else:
-                for palabra in linea_str.split():
-                    if re.match(patron_acorde, palabra):
-                        if not acordes_temp or acordes_temp[-1] != palabra:
-                            acordes_temp.append(palabra)
+    resultado_final = []
+    for sec in secciones_resumen:
+        if not resultado_final or resultado_final[-1] != sec:
+            resultado_final.append(sec)
 
-        if acordes_temp:
-            secciones_resumen.append(
-                f"{sec_temp} // {' '.join(acordes_temp)} //"
-            )
-
-    return "\n".join(secciones_resumen)
+    return "\n".join(resultado_final)
 
 
 # Carga Inicial de Datos
@@ -347,12 +351,7 @@ with pestana_buscar:
             clave_sel = opciones_pantalla[seleccion]
             cancion = cancionero[clave_sel]
 
-            col_t, col_bpm = st.columns([3, 1])
-            with col_t:
-                st.subheader(f"🎵 {cancion['titulo_real']}")
-            with col_bpm:
-                bpm_val = cancion.get("bpm", "N/A")
-                st.metric("Tempo", f"⏱️ {bpm_val} BPM")
+            st.subheader(f"🎵 {cancion['titulo_real']}")
 
             # Transposición interactiva rápida
             semitonos_v = st.slider(
@@ -369,9 +368,6 @@ with pestana_buscar:
                 edit_titulo = st.text_input(
                     "Título:", value=cancion["titulo_real"]
                 )
-                edit_bpm = st.text_input(
-                    "BPM / Tempo:", value=cancion.get("bpm", "")
-                )
                 edit_acordes = st.text_area(
                     "Acordes:", value=cancion["acordes"], height=150
                 )
@@ -382,7 +378,6 @@ with pestana_buscar:
                         cancionero[clave_sel]["titulo_real"] = (
                             edit_titulo.strip()
                         )
-                        cancionero[clave_sel]["bpm"] = edit_bpm.strip()
                         cancionero[clave_sel]["acordes"] = edit_acordes.strip()
                         db["canciones"] = cancionero
                         if guardar_datos_nube(db):
@@ -466,14 +461,7 @@ with pestana_calendario:
                 f" *Fecha:* {clave_fecha}\n\n"
             )
             for idx, c_nom in enumerate(info_servicio["canciones"], 1):
-                bpm_str = ""
-                for c_db in cancionero.values():
-                    if (
-                        c_db["titulo_real"] == c_nom
-                        and c_db.get("bpm")
-                    ):
-                        bpm_str = f" (⏱️ {c_db['bpm']} BPM)"
-                texto_wa += f"{idx}. {c_nom}{bpm_str}\n"
+                texto_wa += f"{idx}. {c_nom}\n"
 
             if info_servicio["notas"]:
                 texto_wa += f"\n📌 *Notas:* {info_servicio['notas']}"
@@ -499,19 +487,13 @@ with pestana_calendario:
                 nombre_c = info_servicio["canciones"][cancion_idx - 1]
 
                 acordes_c = "Sin acordes"
-                bpm_c = "N/A"
                 for c_item in cancionero.values():
                     if c_item["titulo_real"] == nombre_c:
                         acordes_c = c_item["acordes"]
-                        bpm_c = c_item.get("bpm", "N/A")
                         break
 
                 st.markdown(
                     f"<h2 style='text-align: center; color: #38bdf8;'>{cancion_idx}. {nombre_c}</h2>",
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f"<p style='text-align: center;'>⏱️ Tempo: <b>{bpm_c} BPM</b></p>",
                     unsafe_allow_html=True,
                 )
 
@@ -547,9 +529,6 @@ with pestana_agregar:
 
     if metodo == "Escribir manualmente":
         nuevo_titulo = st.text_input("Título de la canción:")
-        nuevo_bpm = st.text_input(
-            "BPM / Tempo (Opcional):", placeholder="Ej: 120"
-        )
         nuevos_acordes = st.text_area(
             "Estructura y acordes:",
             placeholder="Intro // G D //\nEstrofa // G C D //",
@@ -568,7 +547,6 @@ with pestana_agregar:
                 )
                 cancionero[clave_nueva] = {
                     "titulo_real": nuevo_titulo.strip(),
-                    "bpm": nuevo_bpm.strip(),
                     "acordes": nuevos_acordes.strip(),
                 }
                 db["canciones"] = cancionero
@@ -701,7 +679,6 @@ with pestana_agregar:
         titulo_f = st.text_input(
             "Título:", value=st.session_state["temp_titulo"]
         )
-        bpm_f = st.text_input("BPM / Tempo:", placeholder="Ej: 128")
         acordes_f = st.text_area(
             "Acordes Extraídos:",
             value=st.session_state["temp_acordes"],
@@ -720,7 +697,6 @@ with pestana_agregar:
             )
             cancionero[clave_nueva] = {
                 "titulo_real": titulo_f.strip(),
-                "bpm": bpm_f.strip(),
                 "acordes": acordes_f.strip(),
             }
             db["canciones"] = cancionero
