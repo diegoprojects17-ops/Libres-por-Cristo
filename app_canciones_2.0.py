@@ -335,7 +335,7 @@ with pestana_agregar:
             else:
                 st.error("Por favor completa el título y los acordes.")
 
- elif metodo == "Tomar una foto / Cargar Imagen 📸":
+    elif metodo == "Tomar una foto / Cargar Imagen 📸":
         foto = st.file_uploader(
             "Sube una foto o tómala con tu cámara:", type=["jpg", "jpeg", "png"]
         )
@@ -345,40 +345,45 @@ with pestana_agregar:
             st.image(imagen_original, caption="Foto cargada", width=280)
 
             col_engine1, col_engine2 = st.columns(2)
-            
+
             with col_engine1:
                 btn_digitalizar = st.button("🪄 Digitalizar (Motor Normal)")
             with col_engine2:
-                btn_digitalizar_v2 = st.button("⚡ Digitalizar (Motor Avanzado Engine 2)")
+                btn_digitalizar_v2 = st.button(
+                    "⚡ Digitalizar (Motor Avanzado Engine 2)"
+                )
 
             if btn_digitalizar or btn_digitalizar_v2:
                 engine_usado = "2" if btn_digitalizar_v2 else "1"
                 with st.spinner("Procesando imagen con OCR..."):
                     try:
                         foto.seek(0)
-                        files = {"file": (foto.name, foto.getvalue(), foto.type)}
+                        files = {
+                            "file": (foto.name, foto.getvalue(), foto.type)
+                        }
                         payload = {
                             "apikey": OCR_KEY,
                             "language": "spa",
                             "isOverlayRequired": "False",
                             "detectOrientation": "True",
                             "scale": "True",
-                            "OCREngine": engine_usado
+                            "OCREngine": engine_usado,
                         }
-                        
+
                         respuesta = requests.post(
                             "https://api.ocr.space/parse/image",
                             files=files,
                             data=payload,
-                            timeout=20
+                            timeout=20,
                         )
                         resultado = respuesta.json()
 
-                        if (
-                            resultado.get("OCRExitCode") == 1
-                            and resultado.get("ParsedResults")
+                        if resultado.get("OCRExitCode") == 1 and resultado.get(
+                            "ParsedResults"
                         ):
-                            texto_extraido = resultado["ParsedResults"][0].get("ParsedText", "")
+                            texto_extraido = resultado["ParsedResults"][0].get(
+                                "ParsedText", ""
+                            )
 
                             if texto_extraido.strip():
                                 lineas = [
@@ -388,15 +393,26 @@ with pestana_agregar:
                                 ]
                                 if lineas:
                                     st.session_state["temp_titulo"] = lineas[0]
-                                    st.session_state["temp_acordes"] = "\n".join(lineas[1:])
+                                    st.session_state["temp_acordes"] = "\n".join(
+                                        lineas[1:]
+                                    )
                                 else:
-                                    st.session_state["temp_titulo"] = "Nueva Canción"
-                                    st.session_state["temp_acordes"] = texto_extraido
+                                    st.session_state["temp_titulo"] = (
+                                        "Nueva Canción"
+                                    )
+                                    st.session_state["temp_acordes"] = (
+                                        texto_extraido
+                                    )
                                 st.rerun()
                             else:
-                                st.error("No se detectó texto legible. Intenta con el botón 'Motor Avanzado Engine 2'.")
+                                st.error(
+                                    "No se detectó texto legible. Intenta con"
+                                    " el botón 'Motor Avanzado Engine 2'."
+                                )
                         else:
-                            mensaje_err = resultado.get("ErrorMessage", ["Error desconocido"])[0]
+                            mensaje_err = resultado.get(
+                                "ErrorMessage", ["Error desconocido"]
+                            )[0]
                             st.error(f"Error al leer la imagen: {mensaje_err}")
                     except Exception as e:
                         st.error(f"Error de conexión con el servicio OCR: {e}")
@@ -435,4 +451,3 @@ with pestana_agregar:
                     del st.session_state["temp_titulo"]
                     del st.session_state["temp_acordes"]
                     st.rerun()
-    
