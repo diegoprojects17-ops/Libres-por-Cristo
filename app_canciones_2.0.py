@@ -105,7 +105,6 @@ def transponer_acorde(acorde, semitonos):
             return NOTAS_CROMATICAS[idx]
         return nota
 
-    # Regex para detectar notas en cifrado americano
     patron = r"([A-G][#b]?)"
     return re.sub(patron, transponer_nota, acorde)
 
@@ -116,7 +115,6 @@ def transponer_texto_acordes(texto, semitonos):
     lineas = texto.split("\n")
     lineas_transp = []
     for linea in lineas:
-        # Detectamos si la línea es predominantemente de acordes
         palabras = linea.split()
         if palabras and sum(
             1 for p in palabras if re.match(r"^[A-G][#b]?", p)
@@ -428,75 +426,68 @@ with pestana_agregar:
                 if busqueda_cifra:
                     with st.spinner("Buscando en Cifra Club..."):
                         try:
-                            # Scraping directo vía DuckDuckGo / CifraClub para evitar bloqueos de API
-                            url_ddg = f"https://html.duckduckgo.com/html/?q=site:cifraclub.com+{requests.utils.quote(busqueda_cifra)}"
+                            # API directa de sugerencias de Cifra Club
+                            url_api = f"https://api.cifraclub.com.br/v2/search/?q={requests.utils.quote(busqueda_cifra)}&limit=10"
                             headers = {
                                 "User-Agent": (
                                     "Mozilla/5.0 (Windows NT 10.0; Win64;"
                                     " x64) AppleWebKit/537.36 (KHTML, like"
-                                    " Gecko) Chrome/115.0.0.0 Safari/537.36"
-                                )
+                                    " Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                ),
+                                "Accept": "application/json, text/plain, */*",
+                                "Origin": "https://www.cifraclub.com",
+                                "Referer": "https://www.cifraclub.com/",
                             }
-                            res = requests.get(url_ddg, headers=headers)
+                            res = requests.get(
+                                url_api, headers=headers, timeout=10
+                            )
 
-                            from bs4 import BeautifulSoup
+                            if res.status_code == 200:
+                                datos = res.json()
+                                resultados = []
 
-                            soup = BeautifulSoup(res.text, "html.parser")
-
-                            resultados = []
-                            for a in soup.find_all("a", class_="result__url"):
-                                href = a.get("href", "")
-                                match = re.search(
-                                    r"uddg=(https://www\.cifraclub\.com/[^&]+)",
-                                    href,
+                                listado = (
+                                    datos.get("docs", [])
+                                    if isinstance(datos, dict)
+                                    else []
                                 )
-                                if match:
-                                    clean_url = requests.utils.unquote(
-                                        match.group(1)
-                                    )
-                                    # Extraer título del resultado
-                                    parent = a.find_parent(
-                                        "div", class_="result__body"
-                                    )
-                                    title_tag = (
-                                        parent.find(
-                                            "a", class_="result__title"
+                                for item in listado:
+                                    if item.get("type") == "cifra" or "url" in item:
+                                        artist = item.get("artist", "")
+                                        title = item.get(
+                                            "title", item.get("value", "")
                                         )
-                                        if parent
-                                        else None
-                                    )
-                                    title_text = (
-                                        title_tag.get_text(strip=True)
-                                        if title_tag
-                                        else clean_url
-                                    )
+                                        dns = item.get("dns", "")
+                                        url_path = item.get("url", "")
 
-                                    if not any(
-                                        x in clean_url
-                                        for x in [
-                                            "/letras/",
-                                            "/artistas/",
-                                            "/blog/",
-                                        ]
-                                    ):
-                                        resultados.append({
-                                            "label": (
-                                                title_text.replace(
-                                                    " - Cifra Club", ""
-                                                )
-                                            ),
-                                            "url": clean_url,
-                                        })
+                                        if dns and url_path:
+                                            link = f"https://www.cifraclub.com/{dns}/{url_path}/"
+                                            label = (
+                                                f"{title} - {artist}"
+                                                if artist
+                                                else title
+                                            )
+                                            resultados.append({
+                                                "label": label,
+                                                "url": link,
+                                            })
 
-                            if resultados:
-                                st.session_state["resultados_cifra"] = (
-                                    resultados[:5]
-                                )
+                                if resultados:
+                                    st.session_state["resultados_cifra"] = (
+                                        resultados
+                                    )
+                                else:
+                                    st.warning(
+                                        "No se encontraron coincidencias"
+                                        " exactas. Intenta con palabras clave"
+                                        " más sencillas o la opción de enlace"
+                                        " directo."
+                                    )
                             else:
-                                st.warning(
-                                    "No se encontraron canciones. Prueba"
-                                    " cambiando el nombre o usando la opción de"
-                                    " 'Pegar Enlace Directo'."
+                                st.error(
+                                    f"Error al conectar con Cifra Club (Código"
+                                    f" {res.status_code}). Usa la opción de"
+                                    " enlace directo."
                                 )
                         except Exception as e:
                             st.error(f"Error en la búsqueda: {e}")
@@ -553,7 +544,8 @@ with pestana_agregar:
                             headers={
                                 "User-Agent": (
                                     "Mozilla/5.0 (Windows NT 10.0; Win64;"
-                                    " x64)"
+                                    " x64) AppleWebKit/537.36 (KHTML, like"
+                                    " Gecko) Chrome/120.0.0.0 Safari/537.36"
                                 )
                             },
                         )
