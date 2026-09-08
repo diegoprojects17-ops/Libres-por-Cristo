@@ -335,30 +335,42 @@ with pestana_agregar:
             else:
                 st.error("Por favor completa el título y los acordes.")
 
-    elif metodo == "Tomar una foto / Cargar Imagen 📸":
+ elif metodo == "Tomar una foto / Cargar Imagen 📸":
         foto = st.file_uploader(
             "Sube una foto o tómala con tu cámara:", type=["jpg", "jpeg", "png"]
         )
 
         if foto is not None:
             imagen_original = Image.open(foto)
-            st.image(imagen_original, caption="Foto cargada", width=250)
+            st.image(imagen_original, caption="Foto cargada", width=280)
 
-            if st.button("🪄 Digitalizar Texto de la Foto"):
-                with st.spinner("Leyendo la foto con el lector OCR..."):
+            col_engine1, col_engine2 = st.columns(2)
+            
+            with col_engine1:
+                btn_digitalizar = st.button("🪄 Digitalizar (Motor Normal)")
+            with col_engine2:
+                btn_digitalizar_v2 = st.button("⚡ Digitalizar (Motor Avanzado Engine 2)")
+
+            if btn_digitalizar or btn_digitalizar_v2:
+                engine_usado = "2" if btn_digitalizar_v2 else "1"
+                with st.spinner("Procesando imagen con OCR..."):
                     try:
                         foto.seek(0)
+                        files = {"file": (foto.name, foto.getvalue(), foto.type)}
                         payload = {
                             "apikey": OCR_KEY,
                             "language": "spa",
-                            "isOverlayRequired": False,
-                            "detectOrientation": True,
-                            "scale": True,
+                            "isOverlayRequired": "False",
+                            "detectOrientation": "True",
+                            "scale": "True",
+                            "OCREngine": engine_usado
                         }
+                        
                         respuesta = requests.post(
                             "https://api.ocr.space/parse/image",
-                            files={"filename": foto.getvalue()},
+                            files=files,
                             data=payload,
+                            timeout=20
                         )
                         resultado = respuesta.json()
 
@@ -366,36 +378,28 @@ with pestana_agregar:
                             resultado.get("OCRExitCode") == 1
                             and resultado.get("ParsedResults")
                         ):
-                            texto_extraido = resultado["ParsedResults"][0][
-                                "ParsedText"
-                            ]
+                            texto_extraido = resultado["ParsedResults"][0].get("ParsedText", "")
 
-                            lineas = [
-                                l.strip()
-                                for l in texto_extraido.split("\n")
-                                if l.strip()
-                            ]
-                            if lineas:
-                                st.session_state["temp_titulo"] = lineas[0]
-                                st.session_state["temp_acordes"] = "\n".join(
-                                    lineas[1:]
-                                )
+                            if texto_extraido.strip():
+                                lineas = [
+                                    l.strip()
+                                    for l in texto_extraido.split("\n")
+                                    if l.strip()
+                                ]
+                                if lineas:
+                                    st.session_state["temp_titulo"] = lineas[0]
+                                    st.session_state["temp_acordes"] = "\n".join(lineas[1:])
+                                else:
+                                    st.session_state["temp_titulo"] = "Nueva Canción"
+                                    st.session_state["temp_acordes"] = texto_extraido
+                                st.rerun()
                             else:
-                                st.session_state["temp_titulo"] = (
-                                    "Nueva Canción"
-                                )
-                                st.session_state["temp_acordes"] = (
-                                    texto_extraido
-                                )
-                            st.rerun()
+                                st.error("No se detectó texto legible. Intenta con el botón 'Motor Avanzado Engine 2'.")
                         else:
-                            st.error(
-                                "No se pudo extraer texto de la foto. Intenta"
-                                " tomando una foto donde los acordes se vean lo"
-                                " más claros posibles."
-                            )
+                            mensaje_err = resultado.get("ErrorMessage", ["Error desconocido"])[0]
+                            st.error(f"Error al leer la imagen: {mensaje_err}")
                     except Exception as e:
-                        st.error(f"Error al conectar con el servidor: {e}")
+                        st.error(f"Error de conexión con el servicio OCR: {e}")
 
         if "temp_titulo" in st.session_state:
             st.write("---")
@@ -431,3 +435,4 @@ with pestana_agregar:
                     del st.session_state["temp_titulo"]
                     del st.session_state["temp_acordes"]
                     st.rerun()
+    
