@@ -300,7 +300,11 @@ with pestana_agregar:
     st.subheader("📝 Registra una nueva canción")
     metodo = st.radio(
         "Elige cómo deseas agregarla:",
-        ["Escribir manualmente", "Tomar una foto / Cargar Imagen 📸"],
+        [
+            "Escribir manualmente",
+            "Buscar en Cifra Club 🎸",
+            "Tomar una foto / Cargar Imagen 📸",
+        ],
     )
 
     if metodo == "Escribir manualmente":
@@ -334,6 +338,110 @@ with pestana_agregar:
                     st.rerun()
             else:
                 st.error("Por favor completa el título y los acordes.")
+
+    elif metodo == "Buscar en Cifra Club 🎸":
+        st.markdown("### 🎸 Buscador Directo de Cifra Club")
+
+        busqueda_cifra = st.text_input(
+            "Escribe el nombre de la canción o artista:",
+            placeholder="Ej: Cuan grande es el",
+        )
+
+        if st.button("🔍 Buscar Canción"):
+            if busqueda_cifra:
+                with st.spinner("Buscando en Cifra Club..."):
+                    try:
+                        url_search = f"https://api.cifraclub.com.br/v2/search/?q={requests.utils.quote(busqueda_cifra)}&limit=5"
+                        headers = {"User-Agent": "Mozilla/5.0"}
+                        res = requests.get(url_search, headers=headers).json()
+
+                        resultados = []
+                        if "docs" in res:
+                            for item in res["docs"]:
+                                if item.get("type") == "cifra":
+                                    resultados.append({
+                                        "label": (
+                                            f"{item.get('title')} -"
+                                            f" {item.get('artist')}"
+                                        ),
+                                        "url": (
+                                            "https://www.cifraclub.com/"
+                                            f"{item.get('dns')}/{item.get('url')}/"
+                                        ),
+                                    })
+
+                        if resultados:
+                            st.session_state["resultados_cifra"] = resultados
+                        else:
+                            st.warning(
+                                "No se encontraron resultados para esa"
+                                " búsqueda."
+                            )
+                    except Exception as e:
+                        st.error(f"Error en la búsqueda: {e}")
+            else:
+                st.error("Escribe un término de búsqueda.")
+
+        if (
+            "resultados_cifra" in st.session_state
+            and st.session_state["resultados_cifra"]
+        ):
+            opciones = {
+                r["label"]: r["url"]
+                for r in st.session_state["resultados_cifra"]
+            }
+            cancion_elegida = st.selectbox(
+                "Selecciona la versión deseada:", list(opciones.keys())
+            )
+
+            tonos = [
+                "C",
+                "C#",
+                "D",
+                "D#",
+                "E",
+                "F",
+                "F#",
+                "G",
+                "G#",
+                "A",
+                "A#",
+                "B",
+            ]
+            tono_seleccionado = st.selectbox(
+                "Selecciona la Tonalidad deseada:", tonos, index=7
+            )
+
+            if st.button("📥 Extraer e Importar"):
+                with st.spinner("Descargando acordes..."):
+                    try:
+                        url_final = opciones[cancion_elegida]
+                        from bs4 import BeautifulSoup
+
+                        res = requests.get(
+                            url_final, headers={"User-Agent": "Mozilla/5.0"}
+                        )
+                        soup = BeautifulSoup(res.text, "html.parser")
+
+                        cifra_pre = soup.find("pre")
+                        if cifra_pre:
+                            texto_acordes = cifra_pre.get_text()
+
+                            st.session_state["temp_titulo"] = (
+                                f"{cancion_elegida.split(' - ')[0]} ({tono_seleccionado})"
+                            )
+                            st.session_state["temp_acordes"] = (
+                                f"Tono: {tono_seleccionado}\n\n" + texto_acordes
+                            )
+                            st.success("¡Canción importada con éxito!")
+                            del st.session_state["resultados_cifra"]
+                            st.rerun()
+                        else:
+                            st.error(
+                                "No se pudo extraer la estructura del tema."
+                            )
+                    except Exception as e:
+                        st.error(f"Error al descargar la canción: {e}")
 
     elif metodo == "Tomar una foto / Cargar Imagen 📸":
         foto = st.file_uploader(
@@ -417,37 +525,36 @@ with pestana_agregar:
                     except Exception as e:
                         st.error(f"Error de conexión con el servicio OCR: {e}")
 
-        if "temp_titulo" in st.session_state:
-            st.write("---")
-            st.subheader("🔍 Verifica el resultado:")
+    # Bloque único de Confirmación y Guardado
+    if "temp_titulo" in st.session_state:
+        st.write("---")
+        st.subheader("🔍 Verifica y Guarda la Canción:")
 
-            titulo_final = st.text_input(
-                "Confirmar Título:", st.session_state["temp_titulo"]
+        titulo_final = st.text_input(
+            "Confirmar Título:", st.session_state["temp_titulo"]
+        )
+        acordes_finales = st.text_area(
+            "Confirmar Acordes:", st.session_state["temp_acordes"], height=250
+        )
+
+        if st.button("💾 Guardar Canción en el Cancionero"):
+            clave_nueva = (
+                titulo_final.lower()
+                .strip()
+                .replace("á", "a")
+                .replace("é", "e")
+                .replace("í", "i")
+                .replace("ó", "o")
+                .replace("ú", "u")
             )
-            acordes_finales = st.text_area(
-                "Confirmar Acordes:",
-                st.session_state["temp_acordes"],
-                height=150,
-            )
 
-            if st.button("💾 Guardar Canción"):
-                clave_nueva = (
-                    titulo_final.lower()
-                    .strip()
-                    .replace("á", "a")
-                    .replace("é", "e")
-                    .replace("í", "i")
-                    .replace("ó", "o")
-                    .replace("ú", "u")
-                )
-
-                cancionero[clave_nueva] = {
-                    "titulo_real": titulo_final.strip(),
-                    "acordes": acordes_finales.strip(),
-                }
-                db["canciones"] = cancionero
-                if guardar_datos_nube(db):
-                    st.success(f"¡{titulo_final} guardada!")
-                    del st.session_state["temp_titulo"]
-                    del st.session_state["temp_acordes"]
-                    st.rerun()
+            cancionero[clave_nueva] = {
+                "titulo_real": titulo_final.strip(),
+                "acordes": acordes_finales.strip(),
+            }
+            db["canciones"] = cancionero
+            if guardar_datos_nube(db):
+                st.success(f"¡{titulo_final} guardada exitosamente!")
+                del st.session_state["temp_titulo"]
+                del st.session_state["temp_acordes"]
+                st.rerun()
