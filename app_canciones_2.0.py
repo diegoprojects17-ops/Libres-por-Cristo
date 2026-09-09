@@ -57,7 +57,7 @@ st.markdown(
         border-radius: 14px !important;
         border: none !important;
         font-weight: 600 !important;
-        padding: 10px 20px !important;
+        padding: 8px 16px !important;
         transition: all 0.2s ease-in-out !important;
         box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
         width: 100%;
@@ -89,17 +89,25 @@ st.markdown(
         border-radius: 12px;
     }
 
-    /* Badges visuales */
+    /* Badges visuales con colores 100% distintivos */
     .badge-tono { background-color: #0284c7; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 15px; display: inline-block; margin-bottom: 15px; border: 1px solid #38bdf8; }
-    .badge-intro { background-color: #1e3a8a; color: #93c5fd; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
-    .badge-estrofa { background-color: #065f46; color: #6ee7b7; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
-    .badge-coro { background-color: #854d0e; color: #fde047; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
-    
-    /* Pre-coro con color violeta distintivo exclusivo */
-    .badge-precoro { background-color: #7e22ce; color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #a855f7; }
-    
-    .badge-puente { background-color: #581c87; color: #c084fc; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+    .badge-intro { background-color: #0f766e; color: #99f6e4; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #14b8a6; } /* Verde Turquesa */
+    .badge-estrofa { background-color: #15803d; color: #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #22c55e; } /* Verde Esmeralda */
+    .badge-coro { background-color: #b45309; color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #eab308; } /* Dorado / Ámbar */
+    .badge-precoro { background-color: #7e22ce; color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #a855f7; } /* Violeta Neón */
+    .badge-puente { background-color: #0284c7; color: #bae6fd; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #38bdf8; } /* Azul Eléctrico Llamativo */
     .badge-default { background-color: #334155; color: #cbd5e1; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+
+    /* Contador en sidebar */
+    .counter-badge {
+        background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 14px;
+        display: inline-block;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -275,105 +283,6 @@ def renderizar_bloques_color(texto_acordes):
                 )
 
 
-# 5. PARSEADOR DE CIFRA CLUB
-def parsear_acordes_cifra(soup):
-    cifra_pre = soup.find("pre")
-    if not cifra_pre:
-        return ""
-
-    texto_completo = cifra_pre.get_text()
-
-    texto_sin_tiempos = re.sub(
-        r"\(?\b\d{1,2}:[0-5]\d\b\)?|\b\d{1,2}m\s?[0-5]?\d?s?\b",
-        "",
-        texto_completo,
-    )
-
-    traducciones = {
-        "intro": "Intro",
-        "introdução": "Intro",
-        "primeira parte": "Estrofa",
-        "segunda parte": "Estrofa",
-        "verso": "Estrofa",
-        "pré-refrão": "Pre-coro",
-        "pré refrão": "Pre-coro",
-        "refrão": "Coro",
-        "coro": "Coro",
-        "ponte": "Puente",
-        "interlúdio": "Puente",
-        "solo": "Solo",
-        "final": "Final",
-        "outro": "Final",
-    }
-
-    patron_acorde = r"^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?[0-9]?(\/[A-G][#b]?)?$"
-
-    lineas = texto_sin_tiempos.split("\n")
-    secciones_resumen = []
-    sec_actual = None
-    acordes_sec = []
-
-    progresiones_registradas = {}
-    contador_estrofas = 0
-
-    for linea in lineas:
-        linea_str = linea.strip()
-        if not linea_str:
-            continue
-
-        linea_lower = (
-            linea_str.lower().replace("[", "").replace("]", "").strip()
-        )
-
-        es_encabezado = False
-        for clave, nombre_norm in traducciones.items():
-            if clave in linea_lower:
-                es_encabezado = True
-                nuevo_nombre = nombre_norm
-                break
-
-        if es_encabezado:
-            if sec_actual and acordes_sec:
-                cadena = " ".join(acordes_sec)
-                secciones_resumen.append(f"{sec_actual} // {cadena} //")
-                acordes_sec = []
-            sec_actual = nuevo_nombre
-            continue
-
-        palabras = linea_str.split()
-        acordes_linea = [p for p in palabras if re.match(patron_acorde, p)]
-
-        if acordes_linea:
-            if not sec_actual:
-                prog_key = "-".join(acordes_linea)
-                if prog_key not in progresiones_registradas:
-                    if contador_estrofas == 0:
-                        sec_actual = "Intro"
-                    elif contador_estrofas == 1:
-                        sec_actual = "Estrofa"
-                    else:
-                        sec_actual = "Coro"
-                    progresiones_registradas[prog_key] = sec_actual
-                    contador_estrofas += 1
-                else:
-                    sec_actual = progresiones_registradas[prog_key]
-
-            for ac in acordes_linea:
-                if not acordes_sec or acordes_sec[-1] != ac:
-                    acordes_sec.append(ac)
-
-    if sec_actual and acordes_sec:
-        cadena = " ".join(acordes_sec)
-        secciones_resumen.append(f"{sec_actual} // {cadena} //")
-
-    resultado_final = []
-    for sec in secciones_resumen:
-        if not resultado_final or resultado_final[-1] != sec:
-            resultado_final.append(sec)
-
-    return "\n".join(resultado_final)
-
-
 # Carga Inicial de Datos desde JSONBin
 db = cargar_datos_nube()
 cancionero = db.get("canciones", {})
@@ -382,7 +291,7 @@ calendario = db.get("calendario", {})
 if "lista_servicio" not in st.session_state:
     st.session_state.lista_servicio = []
 
-# Encabezado estilo iOS 18 (Sin el subtítulo previo)
+# Encabezado estilo iOS 18
 st.markdown(
     """
     <div class="ios-card" style="text-align: center; padding: 15px;">
@@ -392,36 +301,96 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# BARRA LATERAL (BORRADOR DE REPERTORIO)
+# --- BARRA LATERAL OPTIMIZADA CON NUEVAS FUNCIONALIDADES ---
 with st.sidebar:
-    st.header("📋 Lista Borrador")
+    cnt = len(st.session_state.lista_servicio)
+    st.markdown(
+        f"### 📋 Lista Borrador <span class='counter-badge'>{cnt}</span>",
+        unsafe_allow_html=True,
+    )
+
     canciones_disponibles = sorted(
         [datos["titulo_real"] for datos in cancionero.values() if "titulo_real" in datos]
     )
+
     cancion_a_añadir = st.selectbox(
-        "Añadir rápida al borrador:",
+        "Añadir canción al borrador:",
         ["-- Seleccionar --"] + canciones_disponibles,
     )
 
     if (
-        st.button("➕ Añadir borrador")
+        st.button("➕ Agregar canción")
         and cancion_a_añadir != "-- Seleccionar --"
     ):
         if cancion_a_añadir not in st.session_state.lista_servicio:
             st.session_state.lista_servicio.append(cancion_a_añadir)
-            st.success(f"¡{cancion_a_añadir} agregada!")
+            st.rerun()
         else:
             st.warning("Ya está en tu borrador.")
 
-    st.write("---")
-    if st.session_state.lista_servicio:
-        st.write("**Canciones seleccionadas:**")
-        for i, cancion in enumerate(st.session_state.lista_servicio, 1):
-            st.write(f"**{i}. {cancion}**")
+    st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
-        if st.button("🗑️ Limpiar borrador"):
+    if st.session_state.lista_servicio:
+        st.write("**Orden de ejecución:**")
+
+        for i, cancion_nom in enumerate(st.session_state.lista_servicio):
+            # Obtener tono rápido
+            tono_str = ""
+            for item in cancionero.values():
+                if item.get("titulo_real") == cancion_nom:
+                    tono_str = f"({detectar_tono_principal(item.get('acordes', ''))})"
+                    break
+
+            c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
+            with c1:
+                st.markdown(
+                    f"<p style='margin:0; font-size:13px;'><b>{i+1}. {cancion_nom}</b> <span style='color:#38bdf8;'>{tono_str}</span></p>",
+                    unsafe_allow_html=True,
+                )
+            with c2:
+                if i > 0 and st.button("▲", key=f"up_{i}"):
+                    st.session_state.lista_servicio[i], (
+                        st.session_state.lista_servicio[i - 1]
+                    ) = (
+                        st.session_state.lista_servicio[i - 1],
+                        st.session_state.lista_servicio[i],
+                    )
+                    st.rerun()
+            with c3:
+                if (
+                    i < len(st.session_state.lista_servicio) - 1
+                    and st.button("▼", key=f"down_{i}")
+                ):
+                    st.session_state.lista_servicio[i], (
+                        st.session_state.lista_servicio[i + 1]
+                    ) = (
+                        st.session_state.lista_servicio[i + 1],
+                        st.session_state.lista_servicio[i],
+                    )
+                    st.rerun()
+            with c4:
+                if st.button("✕", key=f"del_{i}"):
+                    st.session_state.lista_servicio.pop(i)
+                    st.rerun()
+
+        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
+
+        # Botón para compartir lista rápida
+        texto_borrador = "*REPERTORIO PROPUESTO*\n\n"
+        for idx, nom in enumerate(st.session_state.lista_servicio, 1):
+            texto_borrador += f"{idx}. {nom}\n"
+
+        url_borrador_wa = f"https://api.whatsapp.com/send?text={urllib.parse.quote(texto_borrador)}"
+        st.markdown(
+            f"[📲 Enviar borrador a WhatsApp]({url_borrador_wa})",
+            unsafe_allow_html=True,
+        )
+
+        if st.button("🗑️ Vaciar borrador"):
             st.session_state.lista_servicio = []
             st.rerun()
+    else:
+        st.info("El borrador está vacío. Agrega canciones para armar el orden.")
 
 # PESTAÑAS PRINCIPALES
 pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
@@ -430,7 +399,7 @@ pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
     "➕ Agregar Canción",
 ])
 
-# --- PESTAÑA 1: BUSCADOR CON LÍNEA DIVISORA ELEGANTE ---
+# --- PESTAÑA 1: BUSCADOR ---
 with pestana_buscar:
     st.subheader("🔍 Buscador de Canciones")
 
@@ -444,10 +413,8 @@ with pestana_buscar:
             options=titulos_reales,
             index=0,
             key="select_cancion_unica",
-            help="Empieza a escribir para filtrar instantáneamente",
         )
 
-        # Línea divisora sutil y elegante en vez de cuadro vacío
         st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
         clave_sel = next(
