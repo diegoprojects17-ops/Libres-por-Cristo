@@ -420,54 +420,49 @@ pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
     "➕ Agregar Canción",
 ])
 
-# --- PESTAÑA 1: BUSCADOR DE CANCIONES CON PROXIMIDAD Y SUGERENCIAS ---
+# --- PESTAÑA 1: BUSCADOR CON SUGERENCIAS REACTIVAS ESTILO GOOGLE ---
 with pestana_buscar:
-    st.markdown('<div class="ios-card">', unsafe_allow_html=True)
     st.subheader("🔍 Buscador de Canciones")
 
     busqueda = st.text_input(
         "Escribe el nombre de la canción:",
-        placeholder="Ej: Cuan Grande, Bondad, Hermoso...",
+        placeholder="Empieza a escribir (ej: Cuerdas, Bondad, Hermoso...)",
+        key="input_busqueda_google",
     )
+
     busqueda_limpia = busqueda.lower().strip()
-
     titulos_reales = [v["titulo_real"] for v in cancionero.values()]
-    sugerencias = []
 
+    sugerencias = []
     if busqueda_limpia:
-        # Coincidencia directa por texto en la clave o título
-        coincidencias_directas = [
+        directas = [
             v["titulo_real"]
             for k, v in cancionero.items()
             if busqueda_limpia in k or busqueda_limpia in v["titulo_real"].lower()
         ]
+        cercanas = get_close_matches(busqueda, titulos_reales, n=5, cutoff=0.3)
+        sugerencias = list(dict.fromkeys(directas + cercanas))
 
-        if coincidencias_directas:
-            sugerencias = coincidencias_directas
-        else:
-            # Algoritmo de Proximidad (Fuzzy Search) si comete errores ortográficos
-            sugerencias = get_close_matches(
-                busqueda, titulos_reales, n=3, cutoff=0.3
-            )
-            if sugerencias:
-                st.caption("💡 *¿Quisiste decir alguna de estas opciones?*")
+    opciones_desplegadas = sugerencias if busqueda_limpia else titulos_reales
 
-    opciones_finales = sugerencias if sugerencias else titulos_reales
-
-    if opciones_finales:
-        seleccion = st.selectbox(
-            "Selecciona una canción:", opciones_finales
+    if opciones_desplegadas:
+        cancion_seleccionada = st.selectbox(
+            f"Resultados de búsqueda ({len(opciones_desplegadas)}):",
+            opciones_desplegadas,
+            key="select_cancion_google",
         )
 
-        # Buscar la clave correspondiente al título seleccionado
         clave_sel = next(
-            (k for k, v in cancionero.items() if v["titulo_real"] == seleccion),
+            (
+                k
+                for k, v in cancionero.items()
+                if v["titulo_real"] == cancion_seleccionada
+            ),
             None,
         )
 
         if clave_sel:
             cancion = cancionero[clave_sel]
-            st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="ios-card">', unsafe_allow_html=True)
             st.subheader(f"🎵 {cancion['titulo_real']}")
@@ -507,20 +502,18 @@ with pestana_buscar:
                         if guardar_datos_nube(db):
                             st.success("Canción eliminada.")
                             st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown("</div>", unsafe_allow_html=True)
     else:
-        st.info("No hay canciones disponibles en tu JSONBin.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.info("No se encontraron coincidencias para tu búsqueda.")
 
 # --- PESTAÑA 2: CALENDARIO DE SERVICIOS Y MODO EN VIVO ---
 with pestana_calendario:
-    st.markdown('<div class="ios-card">', unsafe_allow_html=True)
     opcion_cal = st.radio(
         "Modalidad:",
         ["Ver Agenda de Servicios", "Programar Nuevo Servicio ➕"],
         horizontal=True,
     )
-    st.markdown('</div>', unsafe_allow_html=True)
 
     if opcion_cal == "Programar Nuevo Servicio ➕":
         st.markdown('<div class="ios-card">', unsafe_allow_html=True)
@@ -557,13 +550,12 @@ with pestana_calendario:
                     st.success("¡Servicio agendado!")
                     st.session_state.lista_servicio = []
                     st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     elif opcion_cal == "Ver Agenda de Servicios":
         if not calendario:
             st.info("No hay servicios agendados aún.")
         else:
-            st.markdown('<div class="ios-card">', unsafe_allow_html=True)
             fechas_ordenadas = sorted(calendario.keys())
             fechas_formateadas = {
                 datetime.strptime(f, "%Y-%m-%d").strftime("%d/%m/%Y")
@@ -577,6 +569,7 @@ with pestana_calendario:
             clave_fecha = fechas_formateadas[seleccion_fecha_label]
             info_servicio = calendario[clave_fecha]
 
+            st.markdown('<div class="ios-card">', unsafe_allow_html=True)
             st.markdown(f"### 🎼 Repertorio: {info_servicio['tipo']}")
             if info_servicio["notas"]:
                 st.info(f"📌 **Observación:** {info_servicio['notas']}")
@@ -598,7 +591,7 @@ with pestana_calendario:
                 f"[📲 Compartir Repertorio en WhatsApp]({url_wa})",
                 unsafe_allow_html=True,
             )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
             if st.checkbox("🚀 MODO EN VIVO (Lectura Gigante para Servicio)"):
                 st.markdown('<div class="ios-card">', unsafe_allow_html=True)
@@ -622,7 +615,7 @@ with pestana_calendario:
                 )
 
                 renderizar_bloques_color(acordes_c)
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
             else:
                 for i, nombre_c in enumerate(info_servicio["canciones"], 1):
@@ -642,8 +635,6 @@ with pestana_calendario:
 
 # --- PESTAÑA 3: AGREGAR CANCIÓN ---
 with pestana_agregar:
-    st.markdown('<div class="ios-card">', unsafe_allow_html=True)
-    st.subheader("📝 Registrar nueva canción")
     metodo = st.radio(
         "Fuente de origen:",
         [
@@ -652,7 +643,6 @@ with pestana_agregar:
             "Tomar una foto / Cargar Imagen 📸",
         ],
     )
-    st.markdown('</div>', unsafe_allow_html=True)
 
     if metodo == "Escribir manualmente":
         st.markdown('<div class="ios-card">', unsafe_allow_html=True)
@@ -681,7 +671,7 @@ with pestana_agregar:
                 if guardar_datos_nube(db):
                     st.success("¡Canción guardada!")
                     st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     elif metodo == "Pegar Link Directo de Cifra Club 🎸":
         st.markdown('<div class="ios-card">', unsafe_allow_html=True)
@@ -754,7 +744,7 @@ with pestana_agregar:
                             )
                     except Exception as e:
                         st.error(f"Error al procesar la URL: {e}")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     elif metodo == "Tomar una foto / Cargar Imagen 📸":
         st.markdown('<div class="ios-card">', unsafe_allow_html=True)
@@ -803,7 +793,7 @@ with pestana_agregar:
                             st.rerun()
                     except Exception as e:
                         st.error(f"Error en OCR: {e}")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # Bloque de Confirmación y Guardado
     if "temp_titulo" in st.session_state:
@@ -838,4 +828,4 @@ with pestana_agregar:
                 del st.session_state["temp_titulo"]
                 del st.session_state["temp_acordes"]
                 st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
