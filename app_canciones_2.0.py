@@ -386,7 +386,7 @@ st.markdown(
 with st.sidebar:
     st.header("📋 Lista Borrador")
     canciones_disponibles = sorted(
-        [datos["titulo_real"] for datos in cancionero.values()]
+        [datos["titulo_real"] for datos in cancionero.values() if "titulo_real" in datos]
     )
     cancion_a_añadir = st.selectbox(
         "Añadir rápida al borrador:",
@@ -420,36 +420,21 @@ pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
     "➕ Agregar Canción",
 ])
 
-# --- PESTAÑA 1: BUSCADOR CON SUGERENCIAS REACTIVAS ESTILO GOOGLE ---
+# --- PESTAÑA 1: BUSCADOR UNIFICADO Y LIMPIO ---
 with pestana_buscar:
     st.subheader("🔍 Buscador de Canciones")
 
-    busqueda = st.text_input(
-        "Escribe el nombre de la canción:",
-        placeholder="Empieza a escribir (ej: Cuerdas, Bondad, Hermoso...)",
-        key="input_busqueda_google",
+    titulos_reales = sorted(
+        [v["titulo_real"] for v in cancionero.values() if "titulo_real" in v]
     )
 
-    busqueda_limpia = busqueda.lower().strip()
-    titulos_reales = [v["titulo_real"] for v in cancionero.values()]
-
-    sugerencias = []
-    if busqueda_limpia:
-        directas = [
-            v["titulo_real"]
-            for k, v in cancionero.items()
-            if busqueda_limpia in k or busqueda_limpia in v["titulo_real"].lower()
-        ]
-        cercanas = get_close_matches(busqueda, titulos_reales, n=5, cutoff=0.3)
-        sugerencias = list(dict.fromkeys(directas + cercanas))
-
-    opciones_desplegadas = sugerencias if busqueda_limpia else titulos_reales
-
-    if opciones_desplegadas:
+    if titulos_reales:
         cancion_seleccionada = st.selectbox(
-            f"Resultados de búsqueda ({len(opciones_desplegadas)}):",
-            opciones_desplegadas,
-            key="select_cancion_google",
+            "Escribe el nombre de la canción:",
+            options=titulos_reales,
+            index=0,
+            key="select_cancion_unica",
+            help="Empieza a escribir para filtrar instantáneamente",
         )
 
         clave_sel = next(
@@ -464,8 +449,7 @@ with pestana_buscar:
         if clave_sel:
             cancion = cancionero[clave_sel]
 
-            st.markdown('<div class="ios-card">', unsafe_allow_html=True)
-            st.subheader(f"🎵 {cancion['titulo_real']}")
+            st.markdown(f"## 🎵 {cancion['titulo_real']}")
 
             semitonos_v = st.slider(
                 "Transponer tono en vivo (Semitonos):", -6, 6, 0
@@ -502,10 +486,8 @@ with pestana_buscar:
                         if guardar_datos_nube(db):
                             st.success("Canción eliminada.")
                             st.rerun()
-
-            st.markdown("</div>", unsafe_allow_html=True)
     else:
-        st.info("No se encontraron coincidencias para tu búsqueda.")
+        st.info("No hay canciones disponibles en el cancionero.")
 
 # --- PESTAÑA 2: CALENDARIO DE SERVICIOS Y MODO EN VIVO ---
 with pestana_calendario:
@@ -516,7 +498,6 @@ with pestana_calendario:
     )
 
     if opcion_cal == "Programar Nuevo Servicio ➕":
-        st.markdown('<div class="ios-card">', unsafe_allow_html=True)
         st.markdown("### 📝 Programar un Servicio")
         fecha_servicio = st.date_input("Fecha:", datetime.now())
         tipo_servicio = st.selectbox(
@@ -550,7 +531,6 @@ with pestana_calendario:
                     st.success("¡Servicio agendado!")
                     st.session_state.lista_servicio = []
                     st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
 
     elif opcion_cal == "Ver Agenda de Servicios":
         if not calendario:
@@ -569,7 +549,6 @@ with pestana_calendario:
             clave_fecha = fechas_formateadas[seleccion_fecha_label]
             info_servicio = calendario[clave_fecha]
 
-            st.markdown('<div class="ios-card">', unsafe_allow_html=True)
             st.markdown(f"### 🎼 Repertorio: {info_servicio['tipo']}")
             if info_servicio["notas"]:
                 st.info(f"📌 **Observación:** {info_servicio['notas']}")
@@ -591,10 +570,8 @@ with pestana_calendario:
                 f"[📲 Compartir Repertorio en WhatsApp]({url_wa})",
                 unsafe_allow_html=True,
             )
-            st.markdown("</div>", unsafe_allow_html=True)
 
             if st.checkbox("🚀 MODO EN VIVO (Lectura Gigante para Servicio)"):
-                st.markdown('<div class="ios-card">', unsafe_allow_html=True)
                 cancion_idx = st.slider(
                     "Cambiar de canción:",
                     1,
@@ -605,7 +582,7 @@ with pestana_calendario:
 
                 acordes_c = "Sin acordes"
                 for c_item in cancionero.values():
-                    if c_item["titulo_real"] == nombre_c:
+                    if c_item.get("titulo_real") == nombre_c:
                         acordes_c = c_item["acordes"]
                         break
 
@@ -615,13 +592,12 @@ with pestana_calendario:
                 )
 
                 renderizar_bloques_color(acordes_c)
-                st.markdown("</div>", unsafe_allow_html=True)
 
             else:
                 for i, nombre_c in enumerate(info_servicio["canciones"], 1):
                     acordes_c = "Acordes no registrados"
                     for c_item in cancionero.values():
-                        if c_item["titulo_real"] == nombre_c:
+                        if c_item.get("titulo_real") == nombre_c:
                             acordes_c = c_item["acordes"]
                             break
                     with st.expander(f"🎵 {i}. {nombre_c}", expanded=True):
@@ -645,7 +621,6 @@ with pestana_agregar:
     )
 
     if metodo == "Escribir manualmente":
-        st.markdown('<div class="ios-card">', unsafe_allow_html=True)
         nuevo_titulo = st.text_input("Título de la canción:")
         nuevos_acordes = st.text_area(
             "Estructura y acordes:",
@@ -671,10 +646,8 @@ with pestana_agregar:
                 if guardar_datos_nube(db):
                     st.success("¡Canción guardada!")
                     st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
 
     elif metodo == "Pegar Link Directo de Cifra Club 🎸":
-        st.markdown('<div class="ios-card">', unsafe_allow_html=True)
         url_directa = st.text_input(
             "Link de Cifra Club:",
             placeholder="https://www.cifraclub.com/marcos-witt/cuan-grande-es-el/",
@@ -744,10 +717,8 @@ with pestana_agregar:
                             )
                     except Exception as e:
                         st.error(f"Error al procesar la URL: {e}")
-        st.markdown("</div>", unsafe_allow_html=True)
 
     elif metodo == "Tomar una foto / Cargar Imagen 📸":
-        st.markdown('<div class="ios-card">', unsafe_allow_html=True)
         foto = st.file_uploader(
             "Cargar imagen de la partitura / cifrado:",
             type=["jpg", "jpeg", "png"],
@@ -793,11 +764,9 @@ with pestana_agregar:
                             st.rerun()
                     except Exception as e:
                         st.error(f"Error en OCR: {e}")
-        st.markdown("</div>", unsafe_allow_html=True)
 
     # Bloque de Confirmación y Guardado
     if "temp_titulo" in st.session_state:
-        st.markdown('<div class="ios-card">', unsafe_allow_html=True)
         st.subheader("🔍 Confirmación Final:")
         titulo_f = st.text_input(
             "Título:", value=st.session_state["temp_titulo"]
@@ -828,4 +797,3 @@ with pestana_agregar:
                 del st.session_state["temp_titulo"]
                 del st.session_state["temp_acordes"]
                 st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
