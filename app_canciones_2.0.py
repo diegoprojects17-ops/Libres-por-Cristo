@@ -9,13 +9,29 @@ import streamlit as st
 
 # 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS ENFOCADOS EN iOS 18
 st.set_page_config(
-    page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
+    page_title="Libres por Cristo",
+    page_icon="🎹",
+    layout="centered",
+    initial_sidebar_state="collapsed",
 )
 
-# Estilos CSS iOS 18 + Glassmorphism + Tipografía Apple
+# Estilos CSS iOS 18 + Glassmorphism + Ocultamiento de la interfaz Streamlit
 st.markdown(
     """
     <style>
+    /* Ocultar interfaz nativa de Streamlit para apariencia de App Nativa */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    [data-testid="stHeader"] {display: none !important;}
+    [data-testid="stToolbar"] {display: none !important;}
+    
+    /* Reducir espacio superior vacante */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 2rem !important;
+    }
+
     /* Fondo principal modo oscuro iOS 18 */
     html, body, [data-testid="stAppViewContainer"] {
         background: linear-gradient(180deg, #090d16 0%, #111827 100%) !important;
@@ -91,11 +107,11 @@ st.markdown(
 
     /* Badges visuales con colores 100% distintivos */
     .badge-tono { background-color: #0284c7; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 15px; display: inline-block; margin-bottom: 15px; border: 1px solid #38bdf8; }
-    .badge-intro { background-color: #0f766e; color: #99f6e4; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #14b8a6; } /* Verde Turquesa */
-    .badge-estrofa { background-color: #15803d; color: #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #22c55e; } /* Verde Esmeralda */
-    .badge-coro { background-color: #b45309; color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #eab308; } /* Dorado / Ámbar */
-    .badge-precoro { background-color: #7e22ce; color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #a855f7; } /* Violeta Neón */
-    .badge-puente { background-color: #0284c7; color: #bae6fd; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #38bdf8; } /* Azul Eléctrico Llamativo */
+    .badge-intro { background-color: #0f766e; color: #99f6e4; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #14b8a6; }
+    .badge-estrofa { background-color: #15803d; color: #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #22c55e; }
+    .badge-coro { background-color: #b45309; color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #eab308; }
+    .badge-precoro { background-color: #7e22ce; color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #a855f7; }
+    .badge-puente { background-color: #0284c7; color: #bae6fd; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #38bdf8; }
     .badge-default { background-color: #334155; color: #cbd5e1; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
 
     /* Contador en sidebar */
@@ -295,13 +311,13 @@ if "lista_servicio" not in st.session_state:
 st.markdown(
     """
     <div class="ios-card" style="text-align: center; padding: 15px;">
-        <h1 style='color: #ffffff; margin: 0; font-size: 30px;'>🎹 Libres por Cristo</h1>
+        <h1 style='color: #ffffff; margin: 0; font-size: 28px;'>🎹 Libres por Cristo</h1>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# --- BARRA LATERAL OPTIMIZADA CON NUEVAS FUNCIONALIDADES ---
+# BARRA LATERAL
 with st.sidebar:
     cnt = len(st.session_state.lista_servicio)
     st.markdown(
@@ -334,7 +350,6 @@ with st.sidebar:
         st.write("**Orden de ejecución:**")
 
         for i, cancion_nom in enumerate(st.session_state.lista_servicio):
-            # Obtener tono rápido
             tono_str = ""
             for item in cancionero.values():
                 if item.get("titulo_real") == cancion_nom:
@@ -375,7 +390,6 @@ with st.sidebar:
 
         st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
-        # Botón para compartir lista rápida
         texto_borrador = "*REPERTORIO PROPUESTO*\n\n"
         for idx, nom in enumerate(st.session_state.lista_servicio, 1):
             texto_borrador += f"{idx}. {nom}\n"
