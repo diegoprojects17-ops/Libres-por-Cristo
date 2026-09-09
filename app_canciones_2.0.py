@@ -1,4 +1,5 @@
 from datetime import datetime
+from difflib import get_close_matches
 import json
 import re
 import urllib.parse
@@ -6,24 +7,82 @@ from PIL import Image
 import requests
 import streamlit as st
 
-# 1. Configuración de la página
+# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS ENFOCADOS EN iOS 18
 st.set_page_config(
-    page_title="Libres por Cristo", page_icon="🎹", layout="centered"
+    page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
 )
 
-# Estilos CSS personalizados (Modo oscuro OLED + Chips de colores para secciones e indicador de Tono)
+# Estilos CSS iOS 18 + Glassmorphism + Tipografía Apple
 st.markdown(
     """
     <style>
-    .stApp {
-        background-color: #090d16;
+    /* Fondo principal modo oscuro iOS 18 */
+    html, body, [data-testid="stAppViewContainer"] {
+        background: linear-gradient(180deg, #090d16 0%, #111827 100%) !important;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
         color: #f8fafc;
     }
-    div[data-testid="stCodeBlock"] {
-        background-color: #020617 !important;
-        border-left: 5px solid #38bdf8 !important;
+
+    /* Tarjetas estilo Glassmorphism de iOS 18 */
+    .ios-card {
+        background: rgba(255, 255, 255, 0.04);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     }
-    .badge-tono { background-color: #0284c7; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 16px; display: inline-block; margin-bottom: 15px; border: 1px solid #38bdf8; }
+
+    /* Cajas de código con estética minimalista */
+    div[data-testid="stCodeBlock"] {
+        background-color: rgba(2, 6, 23, 0.7) !important;
+        border-left: 4px solid #38bdf8 !important;
+        border-radius: 12px !important;
+    }
+
+    /* Botones Táctiles estilo iOS 18 */
+    div.stButton > button {
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+        border-radius: 14px !important;
+        border: none !important;
+        font-weight: 600 !important;
+        padding: 10px 20px !important;
+        transition: all 0.2s ease-in-out !important;
+        box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
+        width: 100%;
+    }
+
+    div.stButton > button:hover {
+        transform: scale(0.98);
+        background-color: #0369a1 !important;
+    }
+
+    /* Cajas de texto e inputs estilo iOS 18 */
+    div[data-baseweb="input"] {
+        background-color: rgba(255, 255, 255, 0.06) !important;
+        border-radius: 14px !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        color: white !important;
+    }
+
+    /* Tabs / Segmented Control estilo iOS */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 4px;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+        border-radius: 12px;
+    }
+
+    /* Badges visuales */
+    .badge-tono { background-color: #0284c7; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 15px; display: inline-block; margin-bottom: 15px; border: 1px solid #38bdf8; }
     .badge-intro { background-color: #1e3a8a; color: #93c5fd; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     .badge-estrofa { background-color: #065f46; color: #6ee7b7; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     .badge-coro { background-color: #854d0e; color: #fde047; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
@@ -116,7 +175,6 @@ def transponer_acorde(acorde, semitonos):
 
 
 def transponer_texto_acordes(texto, semitonos):
-    """Transpone únicamente los bloques de acordes sin alterar el nombre de las etiquetas."""
     if semitonos == 0:
         return texto
     lineas = texto.split("\n")
@@ -129,7 +187,6 @@ def transponer_texto_acordes(texto, semitonos):
             acordes_sec = partes[1] if len(partes) > 1 else ""
             resto = "//".join(partes[2:]) if len(partes) > 2 else ""
 
-            # Transponemos SOLAMENTE la sección de acordes
             acordes_transp = transponer_acorde(acordes_sec, semitonos)
 
             linea_reconstruida = f"{nombre_sec}//{acordes_transp}//"
@@ -149,7 +206,6 @@ def transponer_texto_acordes(texto, semitonos):
 
 
 def detectar_tono_principal(texto_acordes):
-    """Detecta el primer acorde relevante de la canción para mostrar el tono."""
     patron_acorde = (
         r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
     )
@@ -160,10 +216,8 @@ def detectar_tono_principal(texto_acordes):
 
 
 def renderizar_bloques_color(texto_acordes):
-    """Convierte el formato 'Sección // Acordes //' en bloques visuales HTML limpios."""
     tono_detectado = detectar_tono_principal(texto_acordes)
 
-    # 1. Mostrar badge de Tonalidad
     st.markdown(
         f'<div class="badge-tono">🎵 Tonalidad actual: {tono_detectado}</div>',
         unsafe_allow_html=True,
@@ -192,10 +246,9 @@ def renderizar_bloques_color(texto_acordes):
             elif "puente" in sec_lower or "ponte" in sec_lower:
                 clase_badge = "badge-puente"
 
-            # HTML en una sola línea sin espacios/indentación inicial para evitar bloques de código en Streamlit
             html_tarjeta = (
-                f'<div style="margin-bottom: 12px; background: #020617; padding:'
-                f' 10px; border-radius: 8px; border: 1px solid #1e293b;"><span'
+                f'<div style="margin-bottom: 12px; background: rgba(2, 6, 23, 0.6); padding:'
+                f' 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);"><span'
                 f' class="{clase_badge}">{nombre_sec}</span><p'
                 ' style="font-family: monospace; font-size: 18px; color:'
                 ' #38bdf8; margin: 8px 0 0 0; font-weight: bold; letter-spacing:'
@@ -211,7 +264,7 @@ def renderizar_bloques_color(texto_acordes):
                 )
 
 
-# 5. PARSEADOR DE CIFRA CLUB SIN MARCAS DE TIEMPO
+# 5. PARSEADOR DE CIFRA CLUB
 def parsear_acordes_cifra(soup):
     cifra_pre = soup.find("pre")
     if not cifra_pre:
@@ -219,7 +272,6 @@ def parsear_acordes_cifra(soup):
 
     texto_completo = cifra_pre.get_text()
 
-    # Elimina formatos de tiempo (ej. 0:00, 00:00, (1:30), 2m30s)
     texto_sin_tiempos = re.sub(
         r"\(?\b\d{1,2}:[0-5]\d\b\)?|\b\d{1,2}m\s?[0-5]?\d?s?\b",
         "",
@@ -311,7 +363,7 @@ def parsear_acordes_cifra(soup):
     return "\n".join(resultado_final)
 
 
-# Carga Inicial de Datos
+# Carga Inicial de Datos desde JSONBin
 db = cargar_datos_nube()
 cancionero = db.get("canciones", {})
 calendario = db.get("calendario", {})
@@ -319,11 +371,11 @@ calendario = db.get("calendario", {})
 if "lista_servicio" not in st.session_state:
     st.session_state.lista_servicio = []
 
-# Encabezado
+# Encabezado estilo iOS 18
 st.markdown(
     """
-    <div style='background-color: #0f172a; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 20px; border: 1px solid #1e293b;'>
-        <h1 style='color: #f8fafc; margin: 0; font-size: 26px;'>🎹 Libres por Cristo</h1>
+    <div class="ios-card" style="text-align: center;">
+        <h1 style='color: #ffffff; margin: 0; font-size: 28px;'>🎹 Libres por Cristo</h1>
         <p style='color: #38bdf8; margin: 5px 0 0 0; font-size: 14px;'>Cancionero Digital & Gestión de Servicios</p>
     </div>
     """,
@@ -368,32 +420,58 @@ pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
     "➕ Agregar Canción",
 ])
 
-# --- PESTAÑA 1: BUSCADOR DE CANCIONES ---
+# --- PESTAÑA 1: BUSCADOR DE CANCIONES CON PROXIMIDAD Y SUGERENCIAS ---
 with pestana_buscar:
+    st.markdown('<div class="ios-card">', unsafe_allow_html=True)
+    st.subheader("🔍 Buscador de Canciones")
+
     busqueda = st.text_input(
-        "🔍 Busca por título de canción:",
-        placeholder="Ej: Cuan Grande es Él...",
+        "Escribe el nombre de la canción:",
+        placeholder="Ej: Cuan Grande, Bondad, Hermoso...",
     )
     busqueda_limpia = busqueda.lower().strip()
 
+    titulos_reales = [v["titulo_real"] for v in cancionero.values()]
+    sugerencias = []
+
     if busqueda_limpia:
-        coincidencias = [c for c in cancionero.keys() if busqueda_limpia in c]
+        # Coincidencia directa por texto en la clave o título
+        coincidencias_directas = [
+            v["titulo_real"]
+            for k, v in cancionero.items()
+            if busqueda_limpia in k or busqueda_limpia in v["titulo_real"].lower()
+        ]
 
-        if not coincidencias:
-            st.error("❌ No se encontró ninguna canción.")
+        if coincidencias_directas:
+            sugerencias = coincidencias_directas
         else:
-            opciones_pantalla = {
-                cancionero[c]["titulo_real"]: c for c in coincidencias
-            }
-            seleccion = st.selectbox(
-                "Resultados encontrados:", list(opciones_pantalla.keys())
+            # Algoritmo de Proximidad (Fuzzy Search) si comete errores ortográficos
+            sugerencias = get_close_matches(
+                busqueda, titulos_reales, n=3, cutoff=0.3
             )
-            clave_sel = opciones_pantalla[seleccion]
-            cancion = cancionero[clave_sel]
+            if sugerencias:
+                st.caption("💡 *¿Quisiste decir alguna de estas opciones?*")
 
+    opciones_finales = sugerencias if sugerencias else titulos_reales
+
+    if opciones_finales:
+        seleccion = st.selectbox(
+            "Selecciona una canción:", opciones_finales
+        )
+
+        # Buscar la clave correspondiente al título seleccionado
+        clave_sel = next(
+            (k for k, v in cancionero.items() if v["titulo_real"] == seleccion),
+            None,
+        )
+
+        if clave_sel:
+            cancion = cancionero[clave_sel]
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="ios-card">', unsafe_allow_html=True)
             st.subheader(f"🎵 {cancion['titulo_real']}")
 
-            # Transposición interactiva rápida
             semitonos_v = st.slider(
                 "Transponer tono en vivo (Semitonos):", -6, 6, 0
             )
@@ -401,7 +479,6 @@ with pestana_buscar:
                 cancion["acordes"], semitonos_v
             )
 
-            # Visualización con bloques de colores e indicador de tono
             renderizar_bloques_color(acordes_mostrados)
 
             with st.expander("🛠️ Editar datos o acordes"):
@@ -430,16 +507,23 @@ with pestana_buscar:
                         if guardar_datos_nube(db):
                             st.success("Canción eliminada.")
                             st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.info("No hay canciones disponibles en tu JSONBin.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- PESTAÑA 2: CALENDARIO DE SERVICIOS Y MODO EN VIVO ---
 with pestana_calendario:
+    st.markdown('<div class="ios-card">', unsafe_allow_html=True)
     opcion_cal = st.radio(
         "Modalidad:",
         ["Ver Agenda de Servicios", "Programar Nuevo Servicio ➕"],
         horizontal=True,
     )
+    st.markdown('</div>', unsafe_allow_html=True)
 
     if opcion_cal == "Programar Nuevo Servicio ➕":
+        st.markdown('<div class="ios-card">', unsafe_allow_html=True)
         st.markdown("### 📝 Programar un Servicio")
         fecha_servicio = st.date_input("Fecha:", datetime.now())
         tipo_servicio = st.selectbox(
@@ -473,11 +557,13 @@ with pestana_calendario:
                     st.success("¡Servicio agendado!")
                     st.session_state.lista_servicio = []
                     st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     elif opcion_cal == "Ver Agenda de Servicios":
         if not calendario:
             st.info("No hay servicios agendados aún.")
         else:
+            st.markdown('<div class="ios-card">', unsafe_allow_html=True)
             fechas_ordenadas = sorted(calendario.keys())
             fechas_formateadas = {
                 datetime.strptime(f, "%Y-%m-%d").strftime("%d/%m/%Y")
@@ -512,11 +598,10 @@ with pestana_calendario:
                 f"[📲 Compartir Repertorio en WhatsApp]({url_wa})",
                 unsafe_allow_html=True,
             )
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            st.write("---")
-
-            # MODO EN VIVO INTERACTIVO (CARRUSEL)
             if st.checkbox("🚀 MODO EN VIVO (Lectura Gigante para Servicio)"):
+                st.markdown('<div class="ios-card">', unsafe_allow_html=True)
                 cancion_idx = st.slider(
                     "Cambiar de canción:",
                     1,
@@ -537,6 +622,7 @@ with pestana_calendario:
                 )
 
                 renderizar_bloques_color(acordes_c)
+                st.markdown('</div>', unsafe_allow_html=True)
 
             else:
                 for i, nombre_c in enumerate(info_servicio["canciones"], 1):
@@ -556,6 +642,7 @@ with pestana_calendario:
 
 # --- PESTAÑA 3: AGREGAR CANCIÓN ---
 with pestana_agregar:
+    st.markdown('<div class="ios-card">', unsafe_allow_html=True)
     st.subheader("📝 Registrar nueva canción")
     metodo = st.radio(
         "Fuente de origen:",
@@ -565,8 +652,10 @@ with pestana_agregar:
             "Tomar una foto / Cargar Imagen 📸",
         ],
     )
+    st.markdown('</div>', unsafe_allow_html=True)
 
     if metodo == "Escribir manualmente":
+        st.markdown('<div class="ios-card">', unsafe_allow_html=True)
         nuevo_titulo = st.text_input("Título de la canción:")
         nuevos_acordes = st.text_area(
             "Estructura y acordes:",
@@ -592,8 +681,10 @@ with pestana_agregar:
                 if guardar_datos_nube(db):
                     st.success("¡Canción guardada!")
                     st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     elif metodo == "Pegar Link Directo de Cifra Club 🎸":
+        st.markdown('<div class="ios-card">', unsafe_allow_html=True)
         url_directa = st.text_input(
             "Link de Cifra Club:",
             placeholder="https://www.cifraclub.com/marcos-witt/cuan-grande-es-el/",
@@ -663,8 +754,10 @@ with pestana_agregar:
                             )
                     except Exception as e:
                         st.error(f"Error al procesar la URL: {e}")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     elif metodo == "Tomar una foto / Cargar Imagen 📸":
+        st.markdown('<div class="ios-card">', unsafe_allow_html=True)
         foto = st.file_uploader(
             "Cargar imagen de la partitura / cifrado:",
             type=["jpg", "jpeg", "png"],
@@ -710,10 +803,11 @@ with pestana_agregar:
                             st.rerun()
                     except Exception as e:
                         st.error(f"Error en OCR: {e}")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Bloque de Confirmación y Guardado
     if "temp_titulo" in st.session_state:
-        st.write("---")
+        st.markdown('<div class="ios-card">', unsafe_allow_html=True)
         st.subheader("🔍 Confirmación Final:")
         titulo_f = st.text_input(
             "Título:", value=st.session_state["temp_titulo"]
@@ -744,3 +838,4 @@ with pestana_agregar:
                 del st.session_state["temp_titulo"]
                 del st.session_state["temp_acordes"]
                 st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
