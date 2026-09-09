@@ -35,6 +35,14 @@ st.markdown(
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     }
 
+    /* Línea divisora sutil y elegante estilo iOS */
+    .ios-divider {
+        height: 1px;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(56, 189, 248, 0.4) 50%, rgba(255, 255, 255, 0) 100%);
+        margin: 18px 0;
+        border: none;
+    }
+
     /* Cajas de código con estética minimalista */
     div[data-testid="stCodeBlock"] {
         background-color: rgba(2, 6, 23, 0.7) !important;
@@ -86,7 +94,10 @@ st.markdown(
     .badge-intro { background-color: #1e3a8a; color: #93c5fd; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     .badge-estrofa { background-color: #065f46; color: #6ee7b7; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     .badge-coro { background-color: #854d0e; color: #fde047; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
-    .badge-precoro { background-color: #9a3412; color: #fdba74; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+    
+    /* Pre-coro con color violeta distintivo exclusivo */
+    .badge-precoro { background-color: #7e22ce; color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #a855f7; }
+    
     .badge-puente { background-color: #581c87; color: #c084fc; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     .badge-default { background-color: #334155; color: #cbd5e1; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     </style>
@@ -239,10 +250,10 @@ def renderizar_bloques_color(texto_acordes):
                 "estrofa" in sec_lower or "verso" in sec_lower or "est" in sec_lower
             ):
                 clase_badge = "badge-estrofa"
-            elif "coro" in sec_lower or "refrão" in sec_lower:
-                clase_badge = "badge-coro"
             elif "pre" in sec_lower:
                 clase_badge = "badge-precoro"
+            elif "coro" in sec_lower or "refrão" in sec_lower:
+                clase_badge = "badge-coro"
             elif "puente" in sec_lower or "ponte" in sec_lower:
                 clase_badge = "badge-puente"
 
@@ -371,12 +382,11 @@ calendario = db.get("calendario", {})
 if "lista_servicio" not in st.session_state:
     st.session_state.lista_servicio = []
 
-# Encabezado estilo iOS 18
+# Encabezado estilo iOS 18 (Sin el subtítulo previo)
 st.markdown(
     """
-    <div class="ios-card" style="text-align: center;">
-        <h1 style='color: #ffffff; margin: 0; font-size: 28px;'>🎹 Libres por Cristo</h1>
-        <p style='color: #38bdf8; margin: 5px 0 0 0; font-size: 14px;'>Cancionero Digital & Gestión de Servicios</p>
+    <div class="ios-card" style="text-align: center; padding: 15px;">
+        <h1 style='color: #ffffff; margin: 0; font-size: 30px;'>🎹 Libres por Cristo</h1>
     </div>
     """,
     unsafe_allow_html=True,
@@ -420,7 +430,7 @@ pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
     "➕ Agregar Canción",
 ])
 
-# --- PESTAÑA 1: BUSCADOR UNIFICADO Y LIMPIO ---
+# --- PESTAÑA 1: BUSCADOR CON LÍNEA DIVISORA ELEGANTE ---
 with pestana_buscar:
     st.subheader("🔍 Buscador de Canciones")
 
@@ -436,6 +446,9 @@ with pestana_buscar:
             key="select_cancion_unica",
             help="Empieza a escribir para filtrar instantáneamente",
         )
+
+        # Línea divisora sutil y elegante en vez de cuadro vacío
+        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
         clave_sel = next(
             (
