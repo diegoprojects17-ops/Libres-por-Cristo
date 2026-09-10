@@ -6,8 +6,9 @@ import urllib.parse
 from PIL import Image
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
-# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS (CRISTAL CON ACCENTO AZUL EN PUENTE)
+# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS
 st.set_page_config(
     page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
 )
@@ -23,7 +24,7 @@ st.markdown(
         color: #f3f4f6;
     }
 
-    /* Tarjetas Liquid Glass (Cristal Transparente / Blanco) */
+    /* Tarjetas Liquid Glass */
     .ios-card {
         background: rgba(255, 255, 255, 0.05) !important;
         backdrop-filter: blur(25px) saturate(180%) !important;
@@ -122,7 +123,6 @@ st.markdown(
     .badge-coro { background-color: rgba(234, 179, 8, 0.2); color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(234, 179, 8, 0.4); }
     .badge-precoro { background-color: rgba(168, 85, 247, 0.2); color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(168, 85, 247, 0.4); }
     
-    /* CAMBIO: Badge de PUENTE en Cristal Azul Neón */
     .badge-puente { 
         background-color: rgba(59, 130, 246, 0.25); 
         color: #93c5fd; 
@@ -135,7 +135,6 @@ st.markdown(
 
     .badge-default { background-color: rgba(255, 255, 255, 0.08); color: #e5e7eb; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.15); }
 
-    /* Badge contador en la barra lateral */
     .counter-badge {
         background: rgba(255, 255, 255, 0.2);
         color: #ffffff;
@@ -168,13 +167,16 @@ def cargar_datos_nube():
     try:
         respuesta = requests.get(URL_JSONBIN, headers=HEADERS)
         if respuesta.status_code == 200:
-            return respuesta.json()["record"]
+            record = respuesta.json()["record"]
+            if "setlists" not in record:
+                record["setlists"] = {}
+            return record
         else:
             st.error("Error al conectar con la base de datos en la nube.")
-            return {"canciones": {}, "calendario": {}}
+            return {"canciones": {}, "calendario": {}, "setlists": {}}
     except Exception as e:
         st.error(f"Error de conexión: {e}")
-        return {"canciones": {}, "calendario": {}}
+        return {"canciones": {}, "calendario": {}, "setlists": {}}
 
 
 def guardar_datos_nube(datos):
@@ -191,29 +193,12 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. LÓGICA DE TRANSPOSICIÓN Y DETECCIÓN DE TONO
+# 4. FUNCIONES DE TRANSPOSICIÓN Y DETECCIÓN
 NOTAS_CROMATICAS = [
-    "C",
-    "C#",
-    "D",
-    "D#",
-    "E",
-    "F",
-    "F#",
-    "G",
-    "G#",
-    "A",
-    "A#",
-    "B",
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
 ]
 NOTAS_EQUIVALENTES = {
-    "Db": "C#",
-    "Eb": "D#",
-    "Fb": "E",
-    "Gb": "F#",
-    "Ab": "G#",
-    "Bb": "A#",
-    "Cb": "B",
+    "Db": "C#", "Eb": "D#", "Fb": "E", "Gb": "F#", "Ab": "G#", "Bb": "A#", "Cb": "B"
 }
 
 
@@ -321,10 +306,101 @@ def renderizar_bloques_color(texto_acordes):
                 )
 
 
+# FUNCIONES DE COMPONENTES ADICIONALES (PASOS 1, 2 Y 3)
+
+def renderizar_auto_scroll():
+    """Renderiza la barra de control flotante de Auto-Scroll"""
+    st.markdown("### 📜 Control de Desplazamiento Automático")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        velocidad = st.slider("Velocidad de despliegue", 1, 10, 3, key="velocidad_scroll")
+    with col2:
+        st.write("")
+        st.write("")
+
+    # Componente HTML / JS para scroll suave nativo en ventana principal
+    js_scroll = f"""
+    <div style="
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        margin-bottom: 15px;
+    ">
+        <button id="btnScroll" onclick="toggleScroll()" style="
+            background: rgba(59, 130, 246, 0.6);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 70%;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        ">▶ Iniciar Auto-Scroll</button>
+        <button onclick="topScroll()" style="
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 10px 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+        ">⬆ Inicio</button>
+    </div>
+
+    <script>
+        var timer = null;
+        var isScrolling = false;
+        var speed = {velocidad};
+
+        function toggleScroll() {{
+            var btn = document.getElementById("btnScroll");
+            if (!isScrolling) {{
+                isScrolling = true;
+                btn.innerHTML = "⏸ Pausar Auto-Scroll";
+                btn.style.background = "rgba(239, 68, 68, 0.7)";
+                
+                // Buscar el contenedor padre de la app
+                var parentDoc = window.parent.document;
+                var mainContainer = parentDoc.querySelector('.main') || parentDoc.documentElement;
+
+                timer = setInterval(function() {{
+                    parentDoc.defaultView.scrollBy(0, 1);
+                }}, 110 - (speed * 10));
+            }} else {{
+                stopScroll();
+            }}
+        }}
+
+        function stopScroll() {{
+            var btn = document.getElementById("btnScroll");
+            isScrolling = false;
+            btn.innerHTML = "▶ Iniciar Auto-Scroll";
+            btn.style.background = "rgba(59, 130, 246, 0.6)";
+            clearInterval(timer);
+        }}
+
+        function topScroll() {{
+            stopScroll();
+            window.parent.scrollTo({{ top: 0, behavior: 'smooth' }});
+        }}
+    </script>
+    """
+    components.html(js_scroll, height=80)
+
+
 # Carga Inicial de Datos desde JSONBin
 db = cargar_datos_nube()
 cancionero = db.get("canciones", {})
 calendario = db.get("calendario", {})
+setlists = db.get("setlists", {})
 
 if "lista_servicio" not in st.session_state:
     st.session_state.lista_servicio = []
@@ -339,7 +415,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BARRA LATERAL OPTIMIZADA ---
+# --- BARRA LATERAL OPTIMIZADA CON GESTOR DE SETLISTS ---
 with st.sidebar:
     cnt = len(st.session_state.lista_servicio)
     st.markdown(
@@ -412,6 +488,21 @@ with st.sidebar:
 
         st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
+        # CREADOR Y GUARDADOR DE SETLISTS
+        st.markdown("#### 📁 Creador de Setlists")
+        nombre_nuevo_setlist = st.text_input("Nombre de esta lista:", placeholder="Ej: Domingo Noche")
+        if st.button("💾 Guardar como Setlist"):
+            if nombre_nuevo_setlist.strip():
+                clave_set = nombre_nuevo_setlist.strip()
+                db["setlists"][clave_set] = list(st.session_state.lista_servicio)
+                if guardar_datos_nube(db):
+                    st.success(f"Setlist '{clave_set}' guardado!")
+                    st.rerun()
+            else:
+                st.error("Escribe un nombre para el Setlist.")
+
+        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
+
         texto_borrador = "*REPERTORIO PROPUESTO*\n\n"
         for idx, nom in enumerate(st.session_state.lista_servicio, 1):
             texto_borrador += f"{idx}. {nom}\n"
@@ -427,6 +518,23 @@ with st.sidebar:
             st.rerun()
     else:
         st.info("El borrador está vacío. Agrega canciones para armar el orden.")
+
+    # CARGADOR DE SETLISTS GUARDADOS EN LA SIDEBAR
+    if setlists:
+        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
+        st.markdown("#### 📜 Setlists Guardados")
+        setlist_sel = st.selectbox("Cargar Setlist:", ["-- Seleccionar --"] + list(setlists.keys()))
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            if st.button("📥 Cargar") and setlist_sel != "-- Seleccionar --":
+                st.session_state.lista_servicio = list(setlists[setlist_sel])
+                st.rerun()
+        with col_s2:
+            if st.button("🗑️ Borrar") and setlist_sel != "-- Seleccionar --":
+                del db["setlists"][setlist_sel]
+                if guardar_datos_nube(db):
+                    st.success("Setlist eliminado.")
+                    st.rerun()
 
 # PESTAÑAS PRINCIPALES
 pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
@@ -466,6 +574,9 @@ with pestana_buscar:
             cancion = cancionero[clave_sel]
 
             st.markdown(f"## 🎵 {cancion['titulo_real']}")
+
+            # MÓDULO DE AUTO-SCROLL
+            renderizar_auto_scroll()
 
             semitonos_v = st.slider(
                 "Transponer tono en vivo (Semitonos):", -6, 6, 0
@@ -588,6 +699,9 @@ with pestana_calendario:
             )
 
             if st.checkbox("🚀 MODO EN VIVO (Lectura Gigante para Servicio)"):
+                # MÓDULO DE AUTO-SCROLL EN MODO EN VIVO
+                renderizar_auto_scroll()
+
                 cancion_idx = st.slider(
                     "Cambiar de canción:",
                     1,
@@ -607,7 +721,6 @@ with pestana_calendario:
                     unsafe_allow_html=True,
                 )
 
-                # TRANSPOSITOR SUTIL EN MODO EN VIVO
                 st_sem = st.number_input(
                     "Transponer tono (Semitonos):",
                     min_value=-6,
@@ -628,7 +741,6 @@ with pestana_calendario:
                             acordes_c = c_item["acordes"]
                             break
                     with st.expander(f"🎵 {i}. {nombre_c}", expanded=True):
-                        # AGREGADO: Transponedor sutil e insonoro dentro de cada expansión de repertorio
                         col_t1, col_t2 = st.columns([3, 1])
                         with col_t2:
                             sem_sutil = st.number_input(
@@ -733,16 +845,16 @@ with pestana_agregar:
                         )
                         soup = BeautifulSoup(res.text, "html.parser")
 
-                        titulo_elem = soup.find("h1", class_="t1") or soup.find(
-                            "h1"
-                        )
+                        titulo_elem = soup.find("h1", class_="t1") or soup.find("h1")
                         titulo_real = (
                             titulo_elem.get_text(strip=True)
                             if titulo_elem
                             else "Nueva Canción"
                         )
 
-                        texto_resumido = parsear_acordes_cifra(soup)
+                        # Extraer acordes/texto simplificado
+                        cifra_pre = soup.find("pre")
+                        texto_resumido = cifra_pre.get_text() if cifra_pre else ""
 
                         if texto_resumido:
                             texto_transp = transponer_texto_acordes(
@@ -754,10 +866,7 @@ with pestana_agregar:
                             del st.session_state["url_cifra_seleccionada"]
                             st.rerun()
                         else:
-                            st.error(
-                                "No se pudo identificar la estructura de la"
-                                " canción."
-                            )
+                            st.error("No se pudo identificar la estructura.")
                     except Exception as e:
                         st.error(f"Error al procesar la URL: {e}")
 
@@ -836,7 +945,7 @@ with pestana_agregar:
             }
             db["canciones"] = cancionero
             if guardar_datos_nube(db):
-                st.success("¡Canción guardada con éxito!")
+                st.success("¡Canción guardada exitosamente!")
                 del st.session_state["temp_titulo"]
                 del st.session_state["temp_acordes"]
                 st.rerun()
