@@ -160,22 +160,54 @@ URL_JSONBIN = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
 HEADERS = {"Content-Type": "application/json", "X-Master-Key": MASTER_KEY}
 
 
-# 3. FUNCIONES EN LA NUBE
+# 3. FUNCIONES EN LA NUBE Y ENUMERACIÓN AUTOMÁTICA
 @st.cache_data(ttl=5)
 def cargar_datos_nube():
     try:
         respuesta = requests.get(URL_JSONBIN, headers=HEADERS)
         if respuesta.status_code == 200:
             record = respuesta.json()["record"]
-            if "setlists" not in record:
-                record["setlists"] = {}
+            if "canciones" not in record:
+                record["canciones"] = {}
+            if "calendario" not in record:
+                record["calendario"] = {}
+
+            # PROCESO DE ENUMERACIÓN DE CANCIONES EXISTENTES EN JSONBIN
+            canciones = record["canciones"]
+            hubo_cambios = False
+            i = 1
+            nuevas_canciones = {}
+
+            for clave, datos in canciones.items():
+                titulo_actual = datos.get("titulo_real", "")
+                # Si el título no empieza con un número y punto (ej. "1. "), se le asigna
+                if not re.match(r"^\d+\.\s", titulo_actual):
+                    titulo_limpio = re.sub(r"^\d+\.\s*", "", titulo_actual)
+                    nuevo_titulo = f"{i}. {titulo_limpio}"
+                    datos["titulo_real"] = nuevo_titulo
+                    hubo_cambios = True
+                else:
+                    # Garantizar que lleve el correlativo consecutivo
+                    titulo_limpio = re.sub(r"^\d+\.\s*", "", titulo_actual)
+                    nuevo_titulo = f"{i}. {titulo_limpio}"
+                    if nuevo_titulo != titulo_actual:
+                        datos["titulo_real"] = nuevo_titulo
+                        hubo_cambios = True
+
+                nuevas_canciones[clave] = datos
+                i += 1
+
+            if hubo_cambios:
+                record["canciones"] = nuevas_canciones
+                guardar_datos_nube(record)
+
             return record
         else:
             st.error("Error al conectar con la base de datos en la nube.")
-            return {"canciones": {}, "calendario": {}, "setlists": {}}
+            return {"canciones": {}, "calendario": {}}
     except Exception as e:
         st.error(f"Error de conexión: {e}")
-        return {"canciones": {}, "calendario": {}, "setlists": {}}
+        return {"canciones": {}, "calendario": {}}
 
 
 def guardar_datos_nube(datos):
@@ -190,6 +222,13 @@ def guardar_datos_nube(datos):
     except Exception as e:
         st.error(f"Error al guardar: {e}")
         return False
+
+
+def formatear_titulo_con_numero(titulo_bruto, total_existentes):
+    """Limpia cualquier número previo y antepone el correlativo según la cantidad actual."""
+    titulo_limpio = re.sub(r"^\d+\.\s*", "", titulo_bruto.strip())
+    numero_nuevo = total_existentes + 1
+    return f"{numero_nuevo}. {titulo_limpio}"
 
 
 # 4. FUNCIONES DE TRANSPOSICIÓN Y DETECCIÓN
@@ -309,7 +348,6 @@ def renderizar_bloques_color(texto_acordes):
 db = cargar_datos_nube()
 cancionero = db.get("canciones", {})
 calendario = db.get("calendario", {})
-setlists = db.get("setlists", {})
 
 if "lista_servicio" not in st.session_state:
     st.session_state.lista_servicio = []
@@ -324,7 +362,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BARRA LATERAL OPTIMIZADA CON GESTOR DE SETLISTS ---
+# --- BARRA LATERAL (LISTA BORRADOR) ---
 with st.sidebar:
     cnt = len(st.session_state.lista_servicio)
     st.markdown(
@@ -397,21 +435,6 @@ with st.sidebar:
 
         st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
-        # CREADOR Y GUARDADOR DE SETLISTS
-        st.markdown("#### 📁 Creador de Setlists")
-        nombre_nuevo_setlist = st.text_input("Nombre de esta lista:", placeholder="Ej: Domingo Noche")
-        if st.button("💾 Guardar como Setlist"):
-            if nombre_nuevo_setlist.strip():
-                clave_set = nombre_nuevo_setlist.strip()
-                db["setlists"][clave_set] = list(st.session_state.lista_servicio)
-                if guardar_datos_nube(db):
-                    st.success(f"Setlist '{clave_set}' guardado!")
-                    st.rerun()
-            else:
-                st.error("Escribe un nombre para el Setlist.")
-
-        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
-
         texto_borrador = "*REPERTORIO PROPUESTO*\n\n"
         for idx, nom in enumerate(st.session_state.lista_servicio, 1):
             texto_borrador += f"{idx}. {nom}\n"
@@ -428,22 +451,6 @@ with st.sidebar:
     else:
         st.info("El borrador está vacío. Agrega canciones para armar el orden.")
 
-    # CARGADOR DE SETLISTS GUARDADOS EN LA SIDEBAR
-    if setlists:
-        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
-        st.markdown("#### 📜 Setlists Guardados")
-        setlist_sel = st.selectbox("Cargar Setlist:", ["-- Seleccionar --"] + list(setlists.keys()))
-        col_s1, col_s2 = st.columns(2)
-        with col_s1:
-            if st.button("📥 Cargar") and setlist_sel != "-- Seleccionar --":
-                st.session_state.lista_servicio = list(setlists[setlist_sel])
-                st.rerun()
-        with col_s2:
-            if st.button("🗑️ Borrar") and setlist_sel != "-- Seleccionar --":
-                del db["setlists"][setlist_sel]
-                if guardar_datos_nube(db):
-                    st.success("Setlist eliminado.")
-                    st.rerun()
 
 # PESTAÑAS PRINCIPALES
 pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
@@ -687,8 +694,12 @@ with pestana_agregar:
 
         if st.button("💾 Guardar Canción"):
             if nuevo_titulo and nuevos_acordes:
+                # Se asigna el número secuencial automáticamente
+                titulo_final = formatear_titulo_con_numero(nuevo_titulo, len(cancionero))
+                
                 clave_nueva = (
-                    nuevo_titulo.lower()
+                    re.sub(r"^\d+\.\s*", "", titulo_final)
+                    .lower()
                     .strip()
                     .replace("á", "a")
                     .replace("é", "e")
@@ -697,12 +708,12 @@ with pestana_agregar:
                     .replace("ú", "u")
                 )
                 cancionero[clave_nueva] = {
-                    "titulo_real": nuevo_titulo.strip(),
+                    "titulo_real": titulo_final,
                     "acordes": nuevos_acordes.strip(),
                 }
                 db["canciones"] = cancionero
                 if guardar_datos_nube(db):
-                    st.success("¡Canción guardada!")
+                    st.success(f"¡Canción guardada como '{titulo_final}'!")
                     st.rerun()
 
     elif metodo == "Pegar Link Directo de Cifra Club 🎸":
@@ -755,7 +766,6 @@ with pestana_agregar:
                             else "Nueva Canción"
                         )
 
-                        # Extraer acordes/texto simplificado
                         cifra_pre = soup.find("pre")
                         texto_resumido = cifra_pre.get_text() if cifra_pre else ""
 
@@ -833,8 +843,12 @@ with pestana_agregar:
         )
 
         if st.button("💾 Guardar Definitivamente"):
+            # Se asigna el número secuencial automáticamente
+            titulo_final = formatear_titulo_con_numero(titulo_f, len(cancionero))
+
             clave_nueva = (
-                titulo_f.lower()
+                re.sub(r"^\d+\.\s*", "", titulo_final)
+                .lower()
                 .strip()
                 .replace("á", "a")
                 .replace("é", "e")
@@ -843,12 +857,12 @@ with pestana_agregar:
                 .replace("ú", "u")
             )
             cancionero[clave_nueva] = {
-                "titulo_real": titulo_f.strip(),
+                "titulo_real": titulo_final,
                 "acordes": acordes_f.strip(),
             }
             db["canciones"] = cancionero
             if guardar_datos_nube(db):
-                st.success("¡Canción guardada exitosamente!")
+                st.success(f"¡Canción guardada como '{titulo_final}'!")
                 del st.session_state["temp_titulo"]
                 del st.session_state["temp_acordes"]
                 st.rerun()
