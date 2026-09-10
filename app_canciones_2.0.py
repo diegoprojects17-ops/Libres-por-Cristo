@@ -7,136 +7,133 @@ from PIL import Image
 import requests
 import streamlit as st
 
-# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS ENFOCADOS EN iOS 18
+# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS (CRISTAL BLANCO / GRIS)
 st.set_page_config(
-    page_title="Libres por Cristo",
-    page_icon="🎹",
-    layout="centered",
-    initial_sidebar_state="collapsed",
+    page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
 )
 
-# Estilos CSS iOS 18 + Glassmorphism + Ocultamiento de la interfaz Streamlit
+# Estilos CSS iOS 18 Liquid Glass / Glassmorphism Monocromático
 st.markdown(
     """
     <style>
-    /* Ocultar interfaz nativa de Streamlit para apariencia de App Nativa */
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    [data-testid="stHeader"] {display: none !important;}
-    [data-testid="stToolbar"] {display: none !important;}
-    
-    /* Reducir espacio superior vacante */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 2rem !important;
-    }
-
-    /* Fondo principal modo oscuro iOS 18 */
+    /* Fondo principal fluido e hiper-minimalista */
     html, body, [data-testid="stAppViewContainer"] {
-        background: linear-gradient(180deg, #090d16 0%, #111827 100%) !important;
+        background: radial-gradient(circle at 50% 0%, #1f2937 0%, #0b0f17 100%) !important;
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
-        color: #f8fafc;
+        color: #f3f4f6;
     }
 
-    /* Tarjetas estilo Glassmorphism de iOS 18 */
+    /* Tarjetas Liquid Glass (Cristal Transparente / Blanco) */
     .ios-card {
-        background: rgba(255, 255, 255, 0.04);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 20px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(25px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.3) !important; /* Reflejo superior */
+        border-radius: 22px !important;
+        padding: 22px !important;
+        margin-bottom: 20px !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
     }
 
-    /* Línea divisora sutil y elegante estilo iOS */
+    /* Línea divisora estilo cristal */
     .ios-divider {
         height: 1px;
-        background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(56, 189, 248, 0.4) 50%, rgba(255, 255, 255, 0) 100%);
-        margin: 18px 0;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.25) 50%, rgba(255, 255, 255, 0) 100%);
+        margin: 20px 0;
         border: none;
     }
 
-    /* Cajas de código con estética minimalista */
+    /* Cajas de código con textura de cristal oscuro */
     div[data-testid="stCodeBlock"] {
-        background-color: rgba(2, 6, 23, 0.7) !important;
-        border-left: 4px solid #38bdf8 !important;
-        border-radius: 12px !important;
+        background: rgba(15, 23, 42, 0.6) !important;
+        backdrop-filter: blur(15px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-left: 4px solid rgba(255, 255, 255, 0.5) !important;
+        border-radius: 14px !important;
     }
 
-    /* Botones Táctiles estilo iOS 18 */
+    /* Botones Táctiles Liquid Glass (Blanco / Gris Neón) */
     div.stButton > button {
-        background-color: #0284c7 !important;
+        background: rgba(255, 255, 255, 0.08) !important;
         color: #ffffff !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
         border-radius: 14px !important;
-        border: none !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.35) !important;
         font-weight: 600 !important;
         padding: 8px 16px !important;
-        transition: all 0.2s ease-in-out !important;
-        box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
         width: 100%;
     }
 
     div.stButton > button:hover {
-        transform: scale(0.98);
-        background-color: #0369a1 !important;
+        transform: translateY(-1px) scale(0.99);
+        background: rgba(255, 255, 255, 0.18) !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+        box-shadow: 0 6px 20px rgba(255, 255, 255, 0.1);
     }
 
-    /* Cajas de texto e inputs estilo iOS 18 */
+    /* Entradas e Inputs estilo cristal */
     div[data-baseweb="input"] {
-        background-color: rgba(255, 255, 255, 0.06) !important;
+        background-color: rgba(255, 255, 255, 0.04) !important;
+        backdrop-filter: blur(10px) !important;
         border-radius: 14px !important;
-        border: 1px solid rgba(255, 255, 255, 0.12) !important;
-        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        color: #ffffff !important;
     }
 
-    /* Tabs / Segmented Control estilo iOS Liquid Glass */
+    /* Tabs / Control segmentado transparente */
     .stTabs [data-baseweb="tab-list"] {
-        background: rgba(255, 255, 255, 0.03) !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-        border-radius: 18px !important;
-        padding: 6px !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        background-color: rgba(255, 255, 255, 0.04);
+        backdrop-filter: blur(15px);
+        border-radius: 18px;
+        padding: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* Burbuja activa seleccionada */
     .stTabs [aria-selected="true"] {
-        background: rgba(56, 189, 248, 0.18) !important;
-        backdrop-filter: blur(16px) !important;
-        -webkit-backdrop-filter: blur(16px) !important;
-        color: #38bdf8 !important;
-        border-radius: 14px !important;
-        border: 1px solid rgba(56, 189, 248, 0.4) !important;
-        box-shadow: 0 4px 20px rgba(56, 189, 248, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.3) !important;
-        font-weight: 600 !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        backdrop-filter: blur(10px) !important;
+        color: #ffffff !important;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.25) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
-    /* Ocultar la línea inferior por defecto de Streamlit */
-    .stTabs [data-baseweb="tab-highlight-title"] {
-        background-color: transparent !important;
+    /* Badges visuales en escala de grises y cristal */
+    .badge-tono { 
+        background: rgba(255, 255, 255, 0.12); 
+        color: #ffffff; 
+        padding: 6px 14px; 
+        border-radius: 20px; 
+        font-weight: bold; 
+        font-size: 15px; 
+        display: inline-block; 
+        margin-bottom: 15px; 
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(8px);
     }
+    
+    .badge-intro { background-color: rgba(20, 184, 166, 0.2); color: #99f6e4; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(20, 184, 166, 0.4); }
+    .badge-estrofa { background-color: rgba(34, 197, 94, 0.2); color: #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .badge-coro { background-color: rgba(234, 179, 8, 0.2); color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(234, 179, 8, 0.4); }
+    .badge-precoro { background-color: rgba(168, 85, 247, 0.2); color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(168, 85, 247, 0.4); }
+    .badge-puente { background-color: rgba(255, 255, 255, 0.15); color: #ffffff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.3); }
+    .badge-default { background-color: rgba(255, 255, 255, 0.08); color: #e5e7eb; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.15); }
 
-    /* Badges visuales con colores 100% distintivos */
-    .badge-tono { background-color: #0284c7; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 15px; display: inline-block; margin-bottom: 15px; border: 1px solid #38bdf8; }
-    .badge-intro { background-color: #0f766e; color: #99f6e4; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #14b8a6; }
-    .badge-estrofa { background-color: #15803d; color: #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #22c55e; }
-    .badge-coro { background-color: #b45309; color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #eab308; }
-    .badge-precoro { background-color: #7e22ce; color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #a855f7; }
-    .badge-puente { background-color: #0284c7; color: #bae6fd; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #38bdf8; }
-    .badge-default { background-color: #334155; color: #cbd5e1; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
-
-    /* Contador en sidebar */
+    /* Badge contador en la barra lateral */
     .counter-badge {
-        background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
-        color: white;
+        background: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
         padding: 4px 12px;
         border-radius: 12px;
         font-weight: bold;
         font-size: 14px;
         display: inline-block;
+        border: 1px solid rgba(255, 255, 255, 0.3);
     }
     </style>
     """,
@@ -296,11 +293,11 @@ def renderizar_bloques_color(texto_acordes):
                 clase_badge = "badge-puente"
 
             html_tarjeta = (
-                f'<div style="margin-bottom: 12px; background: rgba(2, 6, 23, 0.6); padding:'
-                f' 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);"><span'
-                f' class="{clase_badge}">{nombre_sec}</span><p'
+                f'<div style="margin-bottom: 12px; background: rgba(255, 255, 255, 0.03); padding:'
+                f' 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);'
+                f' backdrop-filter: blur(10px);"><span class="{clase_badge}">{nombre_sec}</span><p'
                 ' style="font-family: monospace; font-size: 18px; color:'
-                ' #38bdf8; margin: 8px 0 0 0; font-weight: bold; letter-spacing:'
+                ' #ffffff; margin: 10px 0 0 0; font-weight: bold; letter-spacing:'
                 f' 1px;">{acordes_sec}</p></div>'
             )
             st.markdown(html_tarjeta, unsafe_allow_html=True)
@@ -308,7 +305,7 @@ def renderizar_bloques_color(texto_acordes):
             if linea.strip():
                 st.markdown(
                     f"<p style='font-family: monospace; font-size:"
-                    f" 16px;'>{linea}</p>",
+                    f" 16px; color: #e5e7eb;'>{linea}</p>",
                     unsafe_allow_html=True,
                 )
 
@@ -321,17 +318,17 @@ calendario = db.get("calendario", {})
 if "lista_servicio" not in st.session_state:
     st.session_state.lista_servicio = []
 
-# Encabezado estilo iOS 18
+# Encabezado estilo Liquid Glass
 st.markdown(
     """
-    <div class="ios-card" style="text-align: center; padding: 15px;">
-        <h1 style='color: #ffffff; margin: 0; font-size: 28px;'>🎹 Libres por Cristo</h1>
+    <div class="ios-card" style="text-align: center; padding: 18px;">
+        <h1 style='color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;'>🎹 Libres por Cristo</h1>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# BARRA LATERAL
+# --- BARRA LATERAL OPTIMIZADA ---
 with st.sidebar:
     cnt = len(st.session_state.lista_servicio)
     st.markdown(
@@ -373,7 +370,7 @@ with st.sidebar:
             c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
             with c1:
                 st.markdown(
-                    f"<p style='margin:0; font-size:13px;'><b>{i+1}. {cancion_nom}</b> <span style='color:#38bdf8;'>{tono_str}</span></p>",
+                    f"<p style='margin:0; font-size:13px;'><b>{i+1}. {cancion_nom}</b> <span style='color:#e2e8f0;'>{tono_str}</span></p>",
                     unsafe_allow_html=True,
                 )
             with c2:
@@ -497,7 +494,7 @@ with pestana_buscar:
     else:
         st.info("No hay canciones disponibles en el cancionero.")
 
-# --- PESTAÑA 2: CALENDARIO DE SERVICIOS Y MODO EN VIVO ---
+# --- PESTAÑA 2: CALENDARIO DE SERVICIOS ---
 with pestana_calendario:
     opcion_cal = st.radio(
         "Modalidad:",
@@ -595,7 +592,7 @@ with pestana_calendario:
                         break
 
                 st.markdown(
-                    f"<h2 style='text-align: center; color: #38bdf8;'>{cancion_idx}. {nombre_c}</h2>",
+                    f"<h2 style='text-align: center; color: #ffffff;'>{cancion_idx}. {nombre_c}</h2>",
                     unsafe_allow_html=True,
                 )
 
