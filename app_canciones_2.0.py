@@ -1,842 +1,1016 @@
-from datetime import datetime
-from difflib import get_close_matches
-import json
-import re
-import urllib.parse
-from PIL import Image
-import requests
-import streamlit as st
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chords App - iOS 18 Glass</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Tesseract OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS (CRISTAL CON ACCENTO AZUL EN PUENTE)
-st.set_page_config(
-    page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
-)
-
-# Estilos CSS iOS 18 Liquid Glass
-st.markdown(
-    """
     <style>
-    /* Fondo principal fluido e hiper-minimalista */
-    html, body, [data-testid="stAppViewContainer"] {
-        background: radial-gradient(circle at 50% 0%, #1f2937 0%, #0b0f17 100%) !important;
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
-        color: #f3f4f6;
-    }
+        :root {
+            --bg-base: #0a0c10;
+            --glass-bg: rgba(22, 27, 34, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-blur: blur(20px) saturate(190%);
+            --accent-neon: #00f2fe;
+            --accent-purple: #9d4edd;
+            --accent-gradient: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+            --chord-color: #00f2fe;
+            --radius-xl: 24px;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            --nav-height: 70px;
+        }
 
-    /* Tarjetas Liquid Glass (Cristal Transparente / Blanco) */
-    .ios-card {
-        background: rgba(255, 255, 255, 0.05) !important;
-        backdrop-filter: blur(25px) saturate(180%) !important;
-        -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
-        border-radius: 22px !important;
-        padding: 22px !important;
-        margin-bottom: 20px !important;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-    }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    /* Línea divisora estilo cristal */
-    .ios-divider {
-        height: 1px;
-        background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.25) 50%, rgba(255, 255, 255, 0) 100%);
-        margin: 20px 0;
-        border: none;
-    }
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding-bottom: calc(var(--nav-height) + 20px);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(0, 242, 254, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(157, 78, 221, 0.08) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
 
-    /* Cajas de código con textura de cristal oscuro */
-    div[data-testid="stCodeBlock"] {
-        background: rgba(15, 23, 42, 0.6) !important;
-        backdrop-filter: blur(15px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-left: 4px solid rgba(255, 255, 255, 0.5) !important;
-        border-radius: 14px !important;
-    }
+        /* --- Header Top --- */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 90;
+            background: rgba(10, 12, 16, 0.75);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-    /* Botones Táctiles Liquid Glass */
-    div.stButton > button {
-        background: rgba(255, 255, 255, 0.08) !important;
-        color: #ffffff !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-        border-radius: 14px !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.35) !important;
-        font-weight: 600 !important;
-        padding: 8px 16px !important;
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-        width: 100%;
-    }
+        .app-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #fff, var(--accent-neon));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-    div.stButton > button:hover {
-        transform: translateY(-1px) scale(0.99);
-        background: rgba(255, 255, 255, 0.18) !important;
-        border-color: rgba(255, 255, 255, 0.4) !important;
-        box-shadow: 0 6px 20px rgba(255, 255, 255, 0.1);
-    }
+        /* --- Main Content Area --- */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 16px;
+        }
 
-    /* Entradas e Inputs estilo cristal */
-    div[data-baseweb="input"] {
-        background-color: rgba(255, 255, 255, 0.04) !important;
-        backdrop-filter: blur(10px) !important;
-        border-radius: 14px !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        color: #ffffff !important;
-    }
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
 
-    /* Tabs / Control segmentado transparente */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: rgba(255, 255, 255, 0.04);
-        backdrop-filter: blur(15px);
-        border-radius: 18px;
-        padding: 5px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-    }
+        .tab-content.active {
+            display: block;
+        }
 
-    .stTabs [aria-selected="true"] {
-        background: rgba(255, 255, 255, 0.15) !important;
-        backdrop-filter: blur(10px) !important;
-        color: #ffffff !important;
-        border-radius: 14px;
-        border: 1px solid rgba(255, 255, 255, 0.25) !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-    /* Badges visuales */
-    .badge-tono { 
-        background: rgba(255, 255, 255, 0.12); 
-        color: #ffffff; 
-        padding: 6px 14px; 
-        border-radius: 20px; 
-        font-weight: bold; 
-        font-size: 15px; 
-        display: inline-block; 
-        margin-bottom: 15px; 
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        backdrop-filter: blur(8px);
-    }
-    
-    .badge-intro { background-color: rgba(20, 184, 166, 0.2); color: #99f6e4; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(20, 184, 166, 0.4); }
-    .badge-estrofa { background-color: rgba(34, 197, 94, 0.2); color: #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(34, 197, 94, 0.4); }
-    .badge-coro { background-color: rgba(234, 179, 8, 0.2); color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(234, 179, 8, 0.4); }
-    .badge-precoro { background-color: rgba(168, 85, 247, 0.2); color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(168, 85, 247, 0.4); }
-    
-    /* CAMBIO: Badge de PUENTE en Cristal Azul Neón */
-    .badge-puente { 
-        background-color: rgba(59, 130, 246, 0.25); 
-        color: #93c5fd; 
-        padding: 4px 8px; 
-        border-radius: 6px; 
-        font-weight: bold; 
-        border: 1px solid rgba(59, 130, 246, 0.5); 
-        box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
-    }
+        /* --- Glass Cards & Inputs --- */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 18px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-glass);
+        }
 
-    .badge-default { background-color: rgba(255, 255, 255, 0.08); color: #e5e7eb; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.15); }
+        .search-box {
+            position: relative;
+            margin-bottom: 16px;
+        }
 
-    /* Badge contador en la barra lateral */
-    .counter-badge {
-        background: rgba(255, 255, 255, 0.2);
-        color: #ffffff;
-        padding: 4px 12px;
-        border-radius: 12px;
-        font-weight: bold;
-        font-size: 14px;
-        display: inline-block;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-    }
+        .search-box i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            width: 18px;
+        }
+
+        .input-field {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: 12px 14px 12px 42px;
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            border-color: var(--accent-neon);
+            box-shadow: 0 0 12px rgba(0, 242, 254, 0.2);
+        }
+
+        textarea.input-field {
+            padding: 12px 14px;
+            min-height: 120px;
+            resize: vertical;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        /* --- Buttons --- */
+        .btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 10px 16px;
+            border-radius: var(--radius-md);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: #000;
+            border: none;
+            font-weight: 700;
+        }
+
+        .btn-purple {
+            background: linear-gradient(135deg, #9d4edd 0%, #7b2cbf 100%);
+            color: #fff;
+            border: none;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 8px;
+        }
+
+        /* --- List Elements --- */
+        .song-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .song-item:hover, .song-item:active {
+            background: rgba(0, 242, 254, 0.08);
+            border-color: rgba(0, 242, 254, 0.3);
+        }
+
+        .song-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        /* Badge ID Neón */
+        .code-badge {
+            background: rgba(0, 242, 254, 0.12);
+            color: var(--accent-neon);
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+
+        .song-details h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .song-details p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* --- View Reader (Canción Abierta) --- */
+        #reader-view {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-base);
+            z-index: 200;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .reader-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            position: sticky;
+            top: 0;
+            background: rgba(10, 12, 16, 0.85);
+            backdrop-filter: var(--glass-blur);
+            padding: 10px 0;
+            z-index: 10;
+        }
+
+        .reader-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: var(--glass-bg);
+            padding: 12px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--glass-border);
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chord-content {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.05rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: #e2e8f0;
+        }
+
+        .chord-content .chord {
+            color: var(--chord-color);
+            font-weight: 700;
+        }
+
+        /* --- Barres de Controles Flotantes (Auto-Scroll) --- */
+        .autoscroll-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(22, 27, 34, 0.9);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            padding: 10px 20px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 210;
+        }
+
+        /* --- Bottom Navigation iOS 18 --- */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0; right: 0;
+            height: var(--nav-height);
+            background: rgba(15, 18, 25, 0.85);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 25%;
+        }
+
+        .nav-item i {
+            width: 22px;
+            height: 22px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item.active {
+            color: var(--accent-neon);
+        }
+
+        .nav-item.active i {
+            transform: translateY(-2px);
+        }
+
+        /* OCR Loading Spinner */
+        .ocr-loading {
+            display: none;
+            text-align: center;
+            padding: 12px;
+            color: var(--accent-neon);
+            font-size: 0.9rem;
+        }
+
+        .setlist-badge {
+            font-size: 0.75rem;
+            background: rgba(157, 78, 221, 0.2);
+            color: #d8b4fe;
+            border: 1px solid rgba(157, 78, 221, 0.4);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+</head>
+<body>
 
-# 2. CONFIGURACIÓN DE BASE DE DATOS Y CLAVES
-BIN_ID = st.secrets.get("BIN_ID", "6a5f89cada38895dfe7b600f")
-MASTER_KEY = st.secrets.get(
-    "MASTER_KEY", "$2a$10$vknOXY8VuZW.tNRDuxItD.5YSkYK1V8hGisTCx56w3VwGCUDLLw0i"
-)
-OCR_KEY = st.secrets.get("OCR_KEY", "K87431578588957")
+    <!-- App Header -->
+    <header class="app-header">
+        <div class="app-title">
+            <i data-lucide="music"></i> Chords App
+        </div>
+        <span id="cloud-status" class="code-badge" style="background:rgba(255,255,255,0.05); color:var(--text-muted); border-color:var(--glass-border);">
+            Local Mode
+        </span>
+    </header>
 
-URL_JSONBIN = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
-HEADERS = {"Content-Type": "application/json", "X-Master-Key": MASTER_KEY}
+    <!-- App Container -->
+    <main class="container">
 
+        <!-- TAB 1: REPERTORIO / CANCIONES -->
+        <section id="tab-songs" class="tab-content active">
+            <div class="search-box">
+                <i data-lucide="search"></i>
+                <input type="text" id="search-input" class="input-field" placeholder="Buscar por código (#001), título o artista...">
+            </div>
 
-# 3. FUNCIONES EN LA NUBE
-@st.cache_data(ttl=5)
-def cargar_datos_nube():
-    try:
-        respuesta = requests.get(URL_JSONBIN, headers=HEADERS)
-        if respuesta.status_code == 200:
-            return respuesta.json()["record"]
-        else:
-            st.error("Error al conectar con la base de datos en la nube.")
-            return {"canciones": {}, "calendario": {}}
-    except Exception as e:
-        st.error(f"Error de conexión: {e}")
-        return {"canciones": {}, "calendario": {}}
+            <div id="songs-list">
+                <!-- Las canciones se renderizan dinámicamente aquí -->
+            </div>
+        </section>
 
+        <!-- TAB 2: AGREGAR / OCR -->
+        <section id="tab-add" class="tab-content">
+            <div class="glass-card">
+                <h3 style="margin-bottom: 14px; display:flex; align-items:center; gap:8px;">
+                    <i data-lucide="plus-circle" style="color:var(--accent-neon)"></i> Agregar Nueva Canción
+                </h3>
 
-def guardar_datos_nube(datos):
-    try:
-        respuesta = requests.put(URL_JSONBIN, json=datos, headers=HEADERS)
-        if respuesta.status_code == 200:
-            st.cache_data.clear()
-            return True
-        else:
-            st.error("No se pudieron guardar los datos en la nube.")
-            return False
-    except Exception as e:
-        st.error(f"Error al guardar: {e}")
-        return False
+                <!-- Tesseract OCR Input -->
+                <div class="form-group" style="background: rgba(0,242,254,0.05); padding: 12px; border-radius: var(--radius-md); border: 1px dashed rgba(0,242,254,0.3); margin-bottom: 16px;">
+                    <label style="color:var(--accent-neon); font-weight:600;"><i data-lucide="camera" style="width:14px;"></i> Escanear con OCR (Imagen a Acordes)</label>
+                    <input type="file" id="ocr-file" accept="image/*" class="input-field" style="padding: 8px;">
+                    <div id="ocr-spinner" class="ocr-loading">
+                        ⏳ Escaneando imagen y detectando texto...
+                    </div>
+                </div>
 
+                <div class="form-group">
+                    <label>Título de la Canción</label>
+                    <input type="text" id="song-title" class="input-field" placeholder="Ej: Tu Fidelidad" style="padding-left:14px;">
+                </div>
 
-# 4. LÓGICA DE TRANSPOSICIÓN Y DETECCIÓN DE TONO
-NOTAS_CROMATICAS = [
-    "C",
-    "C#",
-    "D",
-    "D#",
-    "E",
-    "F",
-    "F#",
-    "G",
-    "G#",
-    "A",
-    "A#",
-    "B",
-]
-NOTAS_EQUIVALENTES = {
-    "Db": "C#",
-    "Eb": "D#",
-    "Fb": "E",
-    "Gb": "F#",
-    "Ab": "G#",
-    "Bb": "A#",
-    "Cb": "B",
-}
+                <div class="form-group">
+                    <label>Artista / Banda</label>
+                    <input type="text" id="song-artist" class="input-field" placeholder="Ej: Marcos Witt" style="padding-left:14px;">
+                </div>
 
+                <div class="form-group">
+                    <label>Tono Base</label>
+                    <input type="text" id="song-key" class="input-field" placeholder="Ej: C, Dm, G" style="padding-left:14px;">
+                </div>
 
-def transponer_acorde(acorde, semitonos):
-    def transponer_nota(m):
-        nota = m.group(1)
-        if nota in NOTAS_EQUIVALENTES:
-            nota = NOTAS_EQUIVALENTES[nota]
-        if nota in NOTAS_CROMATICAS:
-            idx = (NOTAS_CROMATICAS.index(nota) + semitonos) % 12
-            return NOTAS_CROMATICAS[idx]
-        return nota
+                <div class="form-group">
+                    <label>Letra y Acordes</label>
+                    <textarea id="song-body" class="input-field" placeholder="C             G&#10;Tu fidelidad es grande..."></textarea>
+                </div>
 
-    patron = r"([A-G][#b]?)"
-    return re.sub(patron, transponer_nota, acorde)
+                <button class="btn btn-primary" style="width: 100%;" onclick="saveNewSong()">
+                    <i data-lucide="save"></i> Guardar Canción
+                </button>
+            </div>
+        </section>
 
+        <!-- TAB 3: SETLISTS / REPERTORIOS DE EVENTOS -->
+        <section id="tab-setlists" class="tab-content">
+            <div class="glass-card">
+                <h3 style="margin-bottom: 14px; display:flex; align-items:center; gap:8px;">
+                    <i data-lucide="list-music" style="color:var(--accent-purple)"></i> Crear Nuevo Setlist
+                </h3>
+                <div style="display:flex; gap:8px; margin-bottom: 14px;">
+                    <input type="text" id="setlist-name-input" class="input-field" placeholder="Ej: Domingo Mañana" style="padding-left:14px;">
+                    <button class="btn btn-purple" onclick="createSetlist()">Crear</button>
+                </div>
+            </div>
 
-def transponer_texto_acordes(texto, semitonos):
-    if semitonos == 0:
-        return texto
-    lineas = texto.split("\n")
-    lineas_transp = []
+            <div id="setlists-container">
+                <!-- Se renderizan los Setlists aquí -->
+            </div>
+        </section>
 
-    for linea in lineas:
-        if "//" in linea:
-            partes = linea.split("//")
-            nombre_sec = partes[0]
-            acordes_sec = partes[1] if len(partes) > 1 else ""
-            resto = "//".join(partes[2:]) if len(partes) > 2 else ""
+        <!-- TAB 4: CONFIGURACIÓN & NUBE -->
+        <section id="tab-settings" class="tab-content">
+            <div class="glass-card">
+                <h3 style="margin-bottom: 14px; display:flex; align-items:center; gap:8px;">
+                    <i data-lucide="cloud" style="color:var(--accent-neon)"></i> Sincronización JSONBin
+                </h3>
+                <div class="form-group">
+                    <label>JSONBin Bin ID</label>
+                    <input type="text" id="cfg-bin-id" class="input-field" style="padding-left:14px;" placeholder="Ej: 64aef...">
+                </div>
+                <div class="form-group">
+                    <label>JSONBin Master Key / API Key</label>
+                    <input type="password" id="cfg-api-key" class="input-field" style="padding-left:14px;" placeholder="$2a$10$...">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 14px;">
+                    <button class="btn btn-primary" style="flex:1;" onclick="syncWithCloud()">
+                        <i data-lucide="upload-cloud"></i> Sincronizar
+                    </button>
+                    <button class="btn" style="flex:1;" onclick="saveCloudCredentials()">
+                        Guardar Keys
+                    </button>
+                </div>
+            </div>
 
-            acordes_transp = transponer_acorde(acordes_sec, semitonos)
+            <div class="glass-card">
+                <h3 style="margin-bottom: 14px;">Respaldos Locales</h3>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" style="flex:1;" onclick="exportJSON()">Exportar JSON</button>
+                    <button class="btn" style="flex:1;" onclick="document.getElementById('import-file').click()">Importar JSON</button>
+                    <input type="file" id="import-file" style="display:none;" accept=".json" onchange="importJSON(event)">
+                </div>
+            </div>
+        </section>
 
-            linea_reconstruida = f"{nombre_sec}//{acordes_transp}//"
-            if resto:
-                linea_reconstruida += f"{resto}"
-            lineas_transp.append(linea_reconstruida)
-        else:
-            palabras = linea.split()
-            if palabras and sum(
-                1 for p in palabras if re.match(r"^[A-G][#b]?", p)
-            ) >= len(palabras) * 0.4:
-                lineas_transp.append(transponer_acorde(linea, semitonos))
-            else:
-                lineas_transp.append(linea)
+    </main>
 
-    return "\n".join(lineas_transp)
+    <!-- READER VIEW (PANTALLA COMPLETA DE LECTURA DE CANCIÓN) -->
+    <div id="reader-view">
+        <div class="reader-header">
+            <button class="btn btn-sm" onclick="closeReader()">
+                <i data-lucide="arrow-left"></i> Volver
+            </button>
+            <div style="text-align: center;">
+                <span id="reader-code" class="code-badge">#000</span>
+                <h3 id="reader-title" style="font-size: 1.1rem; margin-top: 2px;">Título</h3>
+            </div>
+            <button class="btn btn-sm" onclick="deleteCurrentSong()" style="color:#ff4d4d;">
+                <i data-lucide="trash-2"></i>
+            </button>
+        </div>
 
+        <div class="reader-controls">
+            <div>
+                <span style="font-size:0.8rem; color:var(--text-muted)">Transponer:</span>
+                <button class="btn btn-sm" onclick="transpose(-1)">-1</button>
+                <span id="current-transpose" style="font-weight:700; margin:0 4px; color:var(--accent-neon)">0</span>
+                <button class="btn btn-sm" onclick="transpose(1)">+1</button>
+            </div>
+            <div>
+                <button class="btn btn-sm btn-purple" onclick="toggleAutoScroll()">
+                    <i data-lucide="play" id="scroll-icon"></i> Auto-Scroll
+                </button>
+            </div>
+        </div>
 
-def detectar_tono_principal(texto_acordes):
-    patron_acorde = (
-        r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
-    )
-    acordes = re.findall(patron_acorde, texto_acordes)
-    if acordes:
-        return acordes[0]
-    return "N/A"
+        <div id="reader-body" class="chord-content"></div>
 
-
-def renderizar_bloques_color(texto_acordes):
-    tono_detectado = detectar_tono_principal(texto_acordes)
-
-    st.markdown(
-        f'<div class="badge-tono">🎵 Tonalidad actual: {tono_detectado}</div>',
-        unsafe_allow_html=True,
-    )
-
-    lineas = texto_acordes.split("\n")
-
-    for linea in lineas:
-        if "//" in linea:
-            partes = linea.split("//")
-            nombre_sec = partes[0].strip()
-            acordes_sec = partes[1].strip() if len(partes) > 1 else ""
-
-            sec_lower = nombre_sec.lower()
-            clase_badge = "badge-default"
-            if "intro" in sec_lower:
-                clase_badge = "badge-intro"
-            elif (
-                "estrofa" in sec_lower or "verso" in sec_lower or "est" in sec_lower
-            ):
-                clase_badge = "badge-estrofa"
-            elif "pre" in sec_lower:
-                clase_badge = "badge-precoro"
-            elif "coro" in sec_lower or "refrão" in sec_lower:
-                clase_badge = "badge-coro"
-            elif "puente" in sec_lower or "ponte" in sec_lower:
-                clase_badge = "badge-puente"
-
-            html_tarjeta = (
-                f'<div style="margin-bottom: 12px; background: rgba(255, 255, 255, 0.03); padding:'
-                f' 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);'
-                f' backdrop-filter: blur(10px);"><span class="{clase_badge}">{nombre_sec}</span><p'
-                ' style="font-family: monospace; font-size: 18px; color:'
-                ' #ffffff; margin: 10px 0 0 0; font-weight: bold; letter-spacing:'
-                f' 1px;">{acordes_sec}</p></div>'
-            )
-            st.markdown(html_tarjeta, unsafe_allow_html=True)
-        else:
-            if linea.strip():
-                st.markdown(
-                    f"<p style='font-family: monospace; font-size:"
-                    f" 16px; color: #e5e7eb;'>{linea}</p>",
-                    unsafe_allow_html=True,
-                )
-
-
-# Carga Inicial de Datos desde JSONBin
-db = cargar_datos_nube()
-cancionero = db.get("canciones", {})
-calendario = db.get("calendario", {})
-
-if "lista_servicio" not in st.session_state:
-    st.session_state.lista_servicio = []
-
-# Encabezado estilo Liquid Glass
-st.markdown(
-    """
-    <div class="ios-card" style="text-align: center; padding: 18px;">
-        <h1 style='color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;'>🎹 Libres por Cristo</h1>
+        <!-- Controles flotantes de Auto-Scroll -->
+        <div id="autoscroll-bar" class="autoscroll-bar" style="display: none;">
+            <span style="font-size: 0.8rem; font-weight: 600;">Scroll Speed:</span>
+            <button class="btn btn-sm" onclick="adjustScrollSpeed(-1)">-</button>
+            <span id="scroll-speed-label" style="font-family:'JetBrains Mono'; color:var(--accent-neon);">1x</span>
+            <button class="btn btn-sm" onclick="adjustScrollSpeed(1)">+</button>
+            <button class="btn btn-sm" onclick="toggleAutoScroll()" style="background:rgba(255,255,255,0.1); border:none;">✕</button>
+        </div>
     </div>
-    """,
-    unsafe_allow_html=True,
-)
 
-# --- BARRA LATERAL OPTIMIZADA ---
-with st.sidebar:
-    cnt = len(st.session_state.lista_servicio)
-    st.markdown(
-        f"### 📋 Lista Borrador <span class='counter-badge'>{cnt}</span>",
-        unsafe_allow_html=True,
-    )
+    <!-- Bottom Navigation Bar (iOS 18 Style) -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('songs')">
+            <i data-lucide="music"></i>
+            <span>Canciones</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('add')">
+            <i data-lucide="plus-circle"></i>
+            <span>Agregar</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('setlists')">
+            <i data-lucide="list-music"></i>
+            <span>Setlists</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('settings')">
+            <i data-lucide="settings"></i>
+            <span>Ajustes</span>
+        </button>
+    </nav>
 
-    canciones_disponibles = sorted(
-        [datos["titulo_real"] for datos in cancionero.values() if "titulo_real" in datos]
-    )
+    <script>
+        // Global State
+        let songs = JSON.parse(localStorage.getItem('chords_songs')) || [];
+        let setlists = JSON.parse(localStorage.getItem('chords_setlists')) || [];
+        let currentSong = null;
+        let transposeValue = 0;
+        
+        // Auto-Scroll State
+        let autoScrollInterval = null;
+        let autoScrollSpeed = 2; // Default speed
 
-    cancion_a_añadir = st.selectbox(
-        "Añadir canción al borrador:",
-        ["-- Seleccionar --"] + canciones_disponibles,
-    )
+        // Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            ensureSongCodes();
+            renderSongs();
+            renderSetlists();
+            loadCloudCredentials();
 
-    if (
-        st.button("➕ Agregar canción")
-        and cancion_a_añadir != "-- Seleccionar --"
-    ):
-        if cancion_a_añadir not in st.session_state.lista_servicio:
-            st.session_state.lista_servicio.append(cancion_a_añadir)
-            st.rerun()
-        else:
-            st.warning("Ya está en tu borrador.")
+            // Search filter listener
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                renderSongs(e.target.value.toLowerCase());
+            });
 
-    st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
+            // OCR Event listener
+            document.getElementById('ocr-file').addEventListener('change', handleOCR);
+        });
 
-    if st.session_state.lista_servicio:
-        st.write("**Orden de ejecución:**")
-
-        for i, cancion_nom in enumerate(st.session_state.lista_servicio):
-            tono_str = ""
-            for item in cancionero.values():
-                if item.get("titulo_real") == cancion_nom:
-                    tono_str = f"({detectar_tono_principal(item.get('acordes', ''))})"
-                    break
-
-            c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
-            with c1:
-                st.markdown(
-                    f"<p style='margin:0; font-size:13px;'><b>{i+1}. {cancion_nom}</b> <span style='color:#e2e8f0;'>{tono_str}</span></p>",
-                    unsafe_allow_html=True,
-                )
-            with c2:
-                if i > 0 and st.button("▲", key=f"up_{i}"):
-                    st.session_state.lista_servicio[i], (
-                        st.session_state.lista_servicio[i - 1]
-                    ) = (
-                        st.session_state.lista_servicio[i - 1],
-                        st.session_state.lista_servicio[i],
-                    )
-                    st.rerun()
-            with c3:
-                if (
-                    i < len(st.session_state.lista_servicio) - 1
-                    and st.button("▼", key=f"down_{i}")
-                ):
-                    st.session_state.lista_servicio[i], (
-                        st.session_state.lista_servicio[i + 1]
-                    ) = (
-                        st.session_state.lista_servicio[i + 1],
-                        st.session_state.lista_servicio[i],
-                    )
-                    st.rerun()
-            with c4:
-                if st.button("✕", key=f"del_{i}"):
-                    st.session_state.lista_servicio.pop(i)
-                    st.rerun()
-
-        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
-
-        texto_borrador = "*REPERTORIO PROPUESTO*\n\n"
-        for idx, nom in enumerate(st.session_state.lista_servicio, 1):
-            texto_borrador += f"{idx}. {nom}\n"
-
-        url_borrador_wa = f"https://api.whatsapp.com/send?text={urllib.parse.quote(texto_borrador)}"
-        st.markdown(
-            f"[📲 Enviar borrador a WhatsApp]({url_borrador_wa})",
-            unsafe_allow_html=True,
-        )
-
-        if st.button("🗑️ Vaciar borrador"):
-            st.session_state.lista_servicio = []
-            st.rerun()
-    else:
-        st.info("El borrador está vacío. Agrega canciones para armar el orden.")
-
-# PESTAÑAS PRINCIPALES
-pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
-    "🔍 Buscar Canciones",
-    "📅 Calendario de Servicios",
-    "➕ Agregar Canción",
-])
-
-# --- PESTAÑA 1: BUSCADOR ---
-with pestana_buscar:
-    st.subheader("🔍 Buscador de Canciones")
-
-    titulos_reales = sorted(
-        [v["titulo_real"] for v in cancionero.values() if "titulo_real" in v]
-    )
-
-    if titulos_reales:
-        cancion_seleccionada = st.selectbox(
-            "Escribe el nombre de la canción:",
-            options=titulos_reales,
-            index=0,
-            key="select_cancion_unica",
-        )
-
-        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
-
-        clave_sel = next(
-            (
-                k
-                for k, v in cancionero.items()
-                if v["titulo_real"] == cancion_seleccionada
-            ),
-            None,
-        )
-
-        if clave_sel:
-            cancion = cancionero[clave_sel]
-
-            st.markdown(f"## 🎵 {cancion['titulo_real']}")
-
-            semitonos_v = st.slider(
-                "Transponer tono en vivo (Semitonos):", -6, 6, 0
-            )
-            acordes_mostrados = transponer_texto_acordes(
-                cancion["acordes"], semitonos_v
-            )
-
-            renderizar_bloques_color(acordes_mostrados)
-
-            with st.expander("🛠️ Editar datos o acordes"):
-                edit_titulo = st.text_input(
-                    "Título:", value=cancion["titulo_real"]
-                )
-                edit_acordes = st.text_area(
-                    "Acordes:", value=cancion["acordes"], height=150
-                )
-
-                col_s, col_d = st.columns(2)
-                with col_s:
-                    if st.button("💾 Guardar Cambios"):
-                        cancionero[clave_sel]["titulo_real"] = (
-                            edit_titulo.strip()
-                        )
-                        cancionero[clave_sel]["acordes"] = edit_acordes.strip()
-                        db["canciones"] = cancionero
-                        if guardar_datos_nube(db):
-                            st.success("¡Canción actualizada!")
-                            st.rerun()
-                with col_d:
-                    if st.button("🗑️ Eliminar Canción"):
-                        del cancionero[clave_sel]
-                        db["canciones"] = cancionero
-                        if guardar_datos_nube(db):
-                            st.success("Canción eliminada.")
-                            st.rerun()
-    else:
-        st.info("No hay canciones disponibles en el cancionero.")
-
-# --- PESTAÑA 2: CALENDARIO DE SERVICIOS ---
-with pestana_calendario:
-    opcion_cal = st.radio(
-        "Modalidad:",
-        ["Ver Agenda de Servicios", "Programar Nuevo Servicio ➕"],
-        horizontal=True,
-    )
-
-    if opcion_cal == "Programar Nuevo Servicio ➕":
-        st.markdown("### 📝 Programar un Servicio")
-        fecha_servicio = st.date_input("Fecha:", datetime.now())
-        tipo_servicio = st.selectbox(
-            "Evento:",
-            [
-                "Servicio Dominical",
-                "Reunión de Jóvenes",
-                "Servicio de Oración",
-                "Especial / Evento",
-            ],
-        )
-
-        canciones_para_fecha = st.multiselect(
-            "Selecciona el repertorio:",
-            canciones_disponibles,
-            default=st.session_state.lista_servicio,
-        )
-        notas_adicionales = st.text_input(
-            "Observaciones (Ej: Tocar en Sol, Ensayo 4 PM):"
-        )
-
-        if st.button("💾 Guardar en Agenda"):
-            if canciones_para_fecha:
-                fecha_str = fecha_servicio.strftime("%Y-%m-%d")
-                db["calendario"][fecha_str] = {
-                    "tipo": tipo_servicio,
-                    "canciones": canciones_para_fecha,
-                    "notas": notas_adicionales,
+        // Generar códigos automáticos (#001, #002) para canciones
+        function ensureSongCodes() {
+            let updated = false;
+            songs.forEach((song, index) => {
+                const codeStr = `#${String(index + 1).padStart(3, '0')}`;
+                if (song.code !== codeStr) {
+                    song.code = codeStr;
+                    updated = true;
                 }
-                if guardar_datos_nube(db):
-                    st.success("¡Servicio agendado!")
-                    st.session_state.lista_servicio = []
-                    st.rerun()
+            });
+            if (updated) saveSongsToStorage();
+        }
 
-    elif opcion_cal == "Ver Agenda de Servicios":
-        if not calendario:
-            st.info("No hay servicios agendados aún.")
-        else:
-            fechas_ordenadas = sorted(calendario.keys())
-            fechas_formateadas = {
-                datetime.strptime(f, "%Y-%m-%d").strftime("%d/%m/%Y")
-                + f" - {calendario[f]['tipo']}": f
-                for f in fechas_ordenadas
+        function saveSongsToStorage() {
+            localStorage.setItem('chords_songs', JSON.stringify(songs));
+        }
+
+        function saveSetlistsToStorage() {
+            localStorage.setItem('chords_setlists', JSON.stringify(setlists));
+        }
+
+        // --- Navigation / Tabs ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            
+            // Highlight nav button
+            const navMap = { 'songs': 0, 'add': 1, 'setlists': 2, 'settings': 3 };
+            document.querySelectorAll('.nav-item')[navMap[tabId]].classList.add('active');
+        }
+
+        // --- Render Songs List ---
+        function renderSongs(filter = '') {
+            const container = document.getElementById('songs-list');
+            container.innerHTML = '';
+
+            const filtered = songs.filter(s => 
+                (s.code && s.code.toLowerCase().includes(filter)) ||
+                s.title.toLowerCase().includes(filter) ||
+                (s.artist && s.artist.toLowerCase().includes(filter))
+            );
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">No se encontraron canciones.</div>`;
+                return;
             }
 
-            seleccion_fecha_label = st.selectbox(
-                "Selecciona una fecha:", list(fechas_formateadas.keys())
-            )
-            clave_fecha = fechas_formateadas[seleccion_fecha_label]
-            info_servicio = calendario[clave_fecha]
+            filtered.forEach(song => {
+                const item = document.createElement('div');
+                item.className = 'song-item';
+                item.onclick = () => openReader(song.id);
+                item.innerHTML = `
+                    <div class="song-info">
+                        <span class="code-badge">${song.code || '#000'}</span>
+                        <div class="song-details">
+                            <h4>${escapeHtml(song.title)}</h4>
+                            <p>${escapeHtml(song.artist || 'Artista Desconocido')} • Tono: ${song.key || 'N/A'}</p>
+                        </div>
+                    </div>
+                    <i data-lucide="chevron-right" style="color:var(--text-muted); width:18px;"></i>
+                `;
+                container.appendChild(item);
+            });
+            lucide.createIcons();
+        }
 
-            st.markdown(f"### 🎼 Repertorio: {info_servicio['tipo']}")
-            if info_servicio["notas"]:
-                st.info(f"📌 **Observación:** {info_servicio['notas']}")
+        // --- Add Song ---
+        function saveNewSong() {
+            const title = document.getElementById('song-title').value.trim();
+            const artist = document.getElementById('song-artist').value.trim();
+            const key = document.getElementById('song-key').value.trim();
+            const body = document.getElementById('song-body').value.trim();
 
-            texto_wa = (
-                f"*REPERTORIO {info_servicio['tipo'].upper()}*\n📅"
-                f" *Fecha:* {clave_fecha}\n\n"
-            )
-            for idx, c_nom in enumerate(info_servicio["canciones"], 1):
-                texto_wa += f"{idx}. {c_nom}\n"
+            if (!title || !body) {
+                alert('Por favor agrega al menos el título y el contenido con los acordes.');
+                return;
+            }
 
-            if info_servicio["notas"]:
-                texto_wa += f"\n📌 *Notas:* {info_servicio['notas']}"
+            const newSong = {
+                id: Date.now().toString(),
+                code: `#${String(songs.length + 1).padStart(3, '0')}`,
+                title,
+                artist,
+                key,
+                body
+            };
 
-            url_wa = (
-                f"https://api.whatsapp.com/send?text={urllib.parse.quote(texto_wa)}"
-            )
-            st.markdown(
-                f"[📲 Compartir Repertorio en WhatsApp]({url_wa})",
-                unsafe_allow_html=True,
-            )
+            songs.push(newSong);
+            saveSongsToStorage();
+            
+            // Limpiar formulario y cambiar a lista
+            document.getElementById('song-title').value = '';
+            document.getElementById('song-artist').value = '';
+            document.getElementById('song-key').value = '';
+            document.getElementById('song-body').value = '';
+            
+            renderSongs();
+            switchTab('songs');
+        }
 
-            if st.checkbox("🚀 MODO EN VIVO (Lectura Gigante para Servicio)"):
-                cancion_idx = st.slider(
-                    "Cambiar de canción:",
-                    1,
-                    len(info_servicio["canciones"]),
-                    1,
-                )
-                nombre_c = info_servicio["canciones"][cancion_idx - 1]
+        // --- Reader View & Transposition ---
+        function openReader(songId) {
+            currentSong = songs.find(s => s.id === songId);
+            if (!currentSong) return;
 
-                acordes_c = "Sin acordes"
-                for c_item in cancionero.values():
-                    if c_item.get("titulo_real") == nombre_c:
-                        acordes_c = c_item["acordes"]
-                        break
+            transposeValue = 0;
+            document.getElementById('current-transpose').innerText = '0';
+            document.getElementById('reader-code').innerText = currentSong.code || '#000';
+            document.getElementById('reader-title').innerText = currentSong.title;
 
-                st.markdown(
-                    f"<h2 style='text-align: center; color: #ffffff;'>{cancion_idx}. {nombre_c}</h2>",
-                    unsafe_allow_html=True,
-                )
+            renderSongBody();
+            document.getElementById('reader-view').style.display = 'block';
+        }
 
-                # TRANSPOSITOR SUTIL EN MODO EN VIVO
-                st_sem = st.number_input(
-                    "Transponer tono (Semitonos):",
-                    min_value=-6,
-                    max_value=6,
-                    value=0,
-                    step=1,
-                    key=f"trans_vivo_{cancion_idx}",
-                )
-                acordes_c_transp = transponer_texto_acordes(acordes_c, st_sem)
+        function closeReader() {
+            stopAutoScroll();
+            document.getElementById('reader-view').style.display = 'none';
+        }
 
-                renderizar_bloques_color(acordes_c_transp)
+        function deleteCurrentSong() {
+            if (!currentSong) return;
+            if (confirm(`¿Seguro que deseas eliminar "${currentSong.title}"?`)) {
+                songs = songs.filter(s => s.id !== currentSong.id);
+                ensureSongCodes();
+                saveSongsToStorage();
+                renderSongs();
+                closeReader();
+            }
+        }
 
-            else:
-                for i, nombre_c in enumerate(info_servicio["canciones"], 1):
-                    acordes_c = "Acordes no registrados"
-                    for c_item in cancionero.values():
-                        if c_item.get("titulo_real") == nombre_c:
-                            acordes_c = c_item["acordes"]
-                            break
-                    with st.expander(f"🎵 {i}. {nombre_c}", expanded=True):
-                        # AGREGADO: Transponedor sutil e insonoro dentro de cada expansión de repertorio
-                        col_t1, col_t2 = st.columns([3, 1])
-                        with col_t2:
-                            sem_sutil = st.number_input(
-                                "Tono",
-                                min_value=-6,
-                                max_value=6,
-                                value=0,
-                                step=1,
-                                key=f"trans_sutil_{clave_fecha}_{i}",
-                                help="Ajustar semitonos en vivo",
-                            )
+        const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const NOTES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
-                        acordes_finales = transponer_texto_acordes(
-                            acordes_c, sem_sutil
-                        )
-                        renderizar_bloques_color(acordes_finales)
+        function transpose(semitones) {
+            transposeValue += semitones;
+            document.getElementById('current-transpose').innerText = (transposeValue > 0 ? '+' : '') + transposeValue;
+            renderSongBody();
+        }
 
-            if st.button("🗑️ Eliminar este servicio"):
-                del db["calendario"][clave_fecha]
-                if guardar_datos_nube(db):
-                    st.success("Servicio eliminado.")
-                    st.rerun()
+        function transposeChord(chord, semitones) {
+            return chord.replace(/[A-G][#b]?/g, match => {
+                let index = NOTES.indexOf(match);
+                if (index === -1) index = NOTES_FLAT.indexOf(match);
+                if (index === -1) return match;
+                
+                let newIndex = (index + semitones) % 12;
+                if (newIndex < 0) newIndex += 12;
+                return NOTES[newIndex];
+            });
+        }
 
-# --- PESTAÑA 3: AGREGAR CANCIÓN ---
-with pestana_agregar:
-    metodo = st.radio(
-        "Fuente de origen:",
-        [
-            "Escribir manualmente",
-            "Pegar Link Directo de Cifra Club 🎸",
-            "Tomar una foto / Cargar Imagen 📸",
-        ],
-    )
+        function renderSongBody() {
+            if (!currentSong) return;
+            
+            let text = escapeHtml(currentSong.body);
+            // Detectar acordes y aplicar la transposición
+            const chordRegex = /\b([A-G][#b]?(?:m|maj7|min7|dim|aug|sus2|sus4|7|9|11|13)?(?:\/[A-G][#b]?)?)\b/g;
 
-    if metodo == "Escribir manualmente":
-        nuevo_titulo = st.text_input("Título de la canción:")
-        nuevos_acordes = st.text_area(
-            "Estructura y acordes:",
-            placeholder="Intro // G D //\nEstrofa // G C D //",
-        )
+            const transposedText = text.replace(chordRegex, (match) => {
+                const transposed = transposeChord(match, transposeValue);
+                return `<span class="chord">${transposed}</span>`;
+            });
 
-        if st.button("💾 Guardar Canción"):
-            if nuevo_titulo and nuevos_acordes:
-                clave_nueva = (
-                    nuevo_titulo.lower()
-                    .strip()
-                    .replace("á", "a")
-                    .replace("é", "e")
-                    .replace("í", "i")
-                    .replace("ó", "o")
-                    .replace("ú", "u")
-                )
-                cancionero[clave_nueva] = {
-                    "titulo_real": nuevo_titulo.strip(),
-                    "acordes": nuevos_acordes.strip(),
+            document.getElementById('reader-body').innerHTML = transposedText;
+        }
+
+        // --- Auto-Scroll Feature ---
+        function toggleAutoScroll() {
+            if (autoScrollInterval) {
+                stopAutoScroll();
+            } else {
+                startAutoScroll();
+            }
+        }
+
+        function startAutoScroll() {
+            const reader = document.getElementById('reader-view');
+            document.getElementById('autoscroll-bar').style.display = 'flex';
+            document.getElementById('scroll-icon').setAttribute('data-lucide', 'pause');
+            lucide.createIcons();
+
+            autoScrollInterval = setInterval(() => {
+                reader.scrollTop += 1;
+                // Si llega al final, detener
+                if (reader.scrollTop + reader.clientHeight >= reader.scrollHeight) {
+                    stopAutoScroll();
                 }
-                db["canciones"] = cancionero
-                if guardar_datos_nube(db):
-                    st.success("¡Canción guardada!")
-                    st.rerun()
+            }, 50 / autoScrollSpeed);
+        }
 
-    elif metodo == "Pegar Link Directo de Cifra Club 🎸":
-        url_directa = st.text_input(
-            "Link de Cifra Club:",
-            placeholder="https://www.cifraclub.com/marcos-witt/cuan-grande-es-el/",
-        )
-
-        if st.button("📥 Importar desde Cifra Club"):
-            if url_directa:
-                st.session_state["url_cifra_seleccionada"] = url_directa
-            else:
-                st.error("Ingresa una URL válida.")
-
-        if "url_cifra_seleccionada" in st.session_state:
-            st.write("---")
-            semitonos_dict = {
-                "Tono Original": 0,
-                "+1 Semitono": 1,
-                "+2 Semitonos": 2,
-                "+3 Semitonos": 3,
-                "-1 Semitono": -1,
-                "-2 Semitonos": -2,
+        function stopAutoScroll() {
+            if (autoScrollInterval) {
+                clearInterval(autoScrollInterval);
+                autoScrollInterval = null;
             }
-            opcion_trans = st.selectbox(
-                "Transposición:", list(semitonos_dict.keys())
-            )
-            semitonos = semitonos_dict[opcion_trans]
+            document.getElementById('autoscroll-bar').style.display = 'none';
+            document.getElementById('scroll-icon').setAttribute('data-lucide', 'play');
+            lucide.createIcons();
+        }
 
-            if st.button("✨ Extraer y Procesar Estructura"):
-                with st.spinner("Analizando bloques y acordes..."):
-                    try:
-                        from bs4 import BeautifulSoup
-
-                        res = requests.get(
-                            st.session_state["url_cifra_seleccionada"],
-                            headers={
-                                "User-Agent": (
-                                    "Mozilla/5.0 (Windows NT 10.0; Win64;"
-                                    " x64) Chrome/120.0.0.0 Safari/537.36"
-                                )
-                            },
-                        )
-                        soup = BeautifulSoup(res.text, "html.parser")
-
-                        titulo_elem = soup.find("h1", class_="t1") or soup.find(
-                            "h1"
-                        )
-                        titulo_real = (
-                            titulo_elem.get_text(strip=True)
-                            if titulo_elem
-                            else "Nueva Canción"
-                        )
-
-                        texto_resumido = parsear_acordes_cifra(soup)
-
-                        if texto_resumido:
-                            texto_transp = transponer_texto_acordes(
-                                texto_resumido, semitonos
-                            )
-                            st.session_state["temp_titulo"] = titulo_real
-                            st.session_state["temp_acordes"] = texto_transp
-                            st.success("¡Estructura extraída exitosamente!")
-                            del st.session_state["url_cifra_seleccionada"]
-                            st.rerun()
-                        else:
-                            st.error(
-                                "No se pudo identificar la estructura de la"
-                                " canción."
-                            )
-                    except Exception as e:
-                        st.error(f"Error al procesar la URL: {e}")
-
-    elif metodo == "Tomar una foto / Cargar Imagen 📸":
-        foto = st.file_uploader(
-            "Cargar imagen de la partitura / cifrado:",
-            type=["jpg", "jpeg", "png"],
-        )
-        if foto is not None:
-            st.image(Image.open(foto), caption="Imagen cargada", width=250)
-            if st.button("🪄 Digitalizar con OCR"):
-                with st.spinner("Escaneando texto..."):
-                    try:
-                        foto.seek(0)
-                        files = {
-                            "file": (foto.name, foto.getvalue(), foto.type)
-                        }
-                        payload = {
-                            "apikey": OCR_KEY,
-                            "language": "spa",
-                            "OCREngine": "2",
-                        }
-                        respuesta = requests.post(
-                            "https://api.ocr.space/parse/image",
-                            files=files,
-                            data=payload,
-                            timeout=20,
-                        )
-                        resultado = respuesta.json()
-
-                        if (
-                            resultado.get("OCRExitCode") == 1
-                            and resultado.get("ParsedResults")
-                        ):
-                            texto = resultado["ParsedResults"][0].get(
-                                "ParsedText", ""
-                            )
-                            lineas = [
-                                l.strip() for l in texto.split("\n") if l.strip()
-                            ]
-                            st.session_state["temp_titulo"] = (
-                                lineas[0] if lineas else "Nueva Canción"
-                            )
-                            st.session_state["temp_acordes"] = "\n".join(
-                                lineas[1:]
-                            )
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Error en OCR: {e}")
-
-    # Bloque de Confirmación y Guardado
-    if "temp_titulo" in st.session_state:
-        st.subheader("🔍 Confirmación Final:")
-        titulo_f = st.text_input(
-            "Título:", value=st.session_state["temp_titulo"]
-        )
-        acordes_f = st.text_area(
-            "Acordes Extraídos:",
-            value=st.session_state["temp_acordes"],
-            height=200,
-        )
-
-        if st.button("💾 Guardar Definitivamente"):
-            clave_nueva = (
-                titulo_f.lower()
-                .strip()
-                .replace("á", "a")
-                .replace("é", "e")
-                .replace("í", "i")
-                .replace("ó", "o")
-                .replace("ú", "u")
-            )
-            cancionero[clave_nueva] = {
-                "titulo_real": titulo_f.strip(),
-                "acordes": acordes_f.strip(),
+        function adjustScrollSpeed(delta) {
+            autoScrollSpeed = Math.max(1, Math.min(5, autoScrollSpeed + delta));
+            document.getElementById('scroll-speed-label').innerText = `${autoScrollSpeed}x`;
+            if (autoScrollInterval) {
+                stopAutoScroll();
+                startAutoScroll();
             }
-            db["canciones"] = cancionero
-            if guardar_datos_nube(db):
-                st.success("¡Canción guardada con éxito!")
-                del st.session_state["temp_titulo"]
-                del st.session_state["temp_acordes"]
-                st.rerun()
+        }
+
+        // --- Setlists (Listas de Reproducción) ---
+        function createSetlist() {
+            const nameInput = document.getElementById('setlist-name-input');
+            const name = nameInput.value.trim();
+            if (!name) return;
+
+            const newSetlist = {
+                id: Date.now().toString(),
+                name: name,
+                songIds: []
+            };
+
+            setlists.push(newSetlist);
+            saveSetlistsToStorage();
+            nameInput.value = '';
+            renderSetlists();
+        }
+
+        function renderSetlists() {
+            const container = document.getElementById('setlists-container');
+            container.innerHTML = '';
+
+            if (setlists.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No has creado ningún setlist aún.</div>`;
+                return;
+            }
+
+            setlists.forEach(setlist => {
+                const card = document.createElement('div');
+                card.className = 'glass-card';
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h4><i data-lucide="list-music" style="width:16px;"></i> ${escapeHtml(setlist.name)}</h4>
+                        <button class="btn btn-sm" onclick="deleteSetlist('${setlist.id}')" style="color:#ff4d4d; border:none; background:none;">
+                            <i data-lucide="trash-2" style="width:16px;"></i>
+                        </button>
+                    </div>
+                    <div id="setlist-songs-${setlist.id}" style="margin-bottom:10px;">
+                        ${renderSetlistSongs(setlist)}
+                    </div>
+                    <button class="btn btn-sm" onclick="showAddSongToSetlistModal('${setlist.id}')">
+                        <i data-lucide="plus" style="width:14px;"></i> Añadir Canción
+                    </button>
+                `;
+                container.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function renderSetlistSongs(setlist) {
+            if (setlist.songIds.length === 0) return `<p style="font-size:0.8rem; color:var(--text-muted);">Sin canciones añadidas.</p>`;
+            
+            return setlist.songIds.map(id => {
+                const song = songs.find(s => s.id === id);
+                if (!song) return '';
+                return `
+                    <div class="song-item" style="padding:8px 12px; margin-bottom:6px;" onclick="openReader('${song.id}')">
+                        <span class="code-badge" style="font-size:0.75rem;">${song.code}</span>
+                        <span style="font-size:0.9rem; flex:1; margin-left:8px;">${escapeHtml(song.title)}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showAddSongToSetlistModal(setlistId) {
+            const songTitle = prompt("Escribe el código (#001) o título exacto de la canción para añadirla al Setlist:");
+            if (!songTitle) return;
+
+            const song = songs.find(s => s.code.toLowerCase() === songTitle.toLowerCase() || s.title.toLowerCase().includes(songTitle.toLowerCase()));
+            if (song) {
+                const setlist = setlists.find(sl => sl.id === setlistId);
+                if (setlist && !setlist.songIds.includes(song.id)) {
+                    setlist.songIds.push(song.id);
+                    saveSetlistsToStorage();
+                    renderSetlists();
+                }
+            } else {
+                alert("Canción no encontrada.");
+            }
+        }
+
+        function deleteSetlist(id) {
+            setlists = setlists.filter(sl => sl.id !== id);
+            saveSetlistsToStorage();
+            renderSetlists();
+        }
+
+        // --- Tesseract OCR Engine ---
+        async function handleOCR(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const spinner = document.getElementById('ocr-spinner');
+            spinner.style.display = 'block';
+
+            try {
+                const worker = await Tesseract.createWorker('spa');
+                const ret = await worker.recognize(file);
+                await worker.terminate();
+
+                document.getElementById('song-body').value = ret.data.text;
+                alert('¡Imagen procesada con éxito!');
+            } catch (err) {
+                console.error(err);
+                alert('Error al escanear la imagen.');
+            } finally {
+                spinner.style.display = 'none';
+            }
+        }
+
+        // --- JSONBin Cloud Sync ---
+        function saveCloudCredentials() {
+            const binId = document.getElementById('cfg-bin-id').value.trim();
+            const apiKey = document.getElementById('cfg-api-key').value.trim();
+            localStorage.setItem('chords_bin_id', binId);
+            localStorage.setItem('chords_api_key', apiKey);
+            alert('Credenciales guardadas.');
+        }
+
+        function loadCloudCredentials() {
+            const binId = localStorage.getItem('chords_bin_id') || '';
+            const apiKey = localStorage.getItem('chords_api_key') || '';
+            document.getElementById('cfg-bin-id').value = binId;
+            document.getElementById('cfg-api-key').value = apiKey;
+            if (binId && apiKey) {
+                document.getElementById('cloud-status').innerText = 'Cloud Linked';
+                document.getElementById('cloud-status').style.color = 'var(--accent-neon)';
+            }
+        }
+
+        async function syncWithCloud() {
+            const binId = localStorage.getItem('chords_bin_id');
+            const apiKey = localStorage.getItem('chords_api_key');
+
+            if (!binId || !apiKey) {
+                alert('Configura Bin ID y Master Key primero.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': apiKey
+                    },
+                    body: JSON.stringify({ songs, setlists })
+                });
+
+                if (response.ok) {
+                    alert('¡Base de datos sincronizada con JSONBin!');
+                } else {
+                    alert('Error de sincronización con la nube.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error al conectar con JSONBin.');
+            }
+        }
+
+        // --- Local Export/Import ---
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ songs, setlists }, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `chords_backup_${Date.now()}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+        }
+
+        function importJSON(e) {
+            const fileReader = new FileReader();
+            fileReader.onload = (event) => {
+                try {
+                    const parsed = JSON.parse(event.target.result);
+                    if (parsed.songs) {
+                        songs = parsed.songs;
+                        setlists = parsed.setlists || [];
+                        ensureSongCodes();
+                        saveSongsToStorage();
+                        saveSetlistsToStorage();
+                        renderSongs();
+                        renderSetlists();
+                        alert('¡Datos importados con éxito!');
+                    }
+                } catch (err) {
+                    alert('Archivo JSON no válido.');
+                }
+            };
+            fileReader.readAsText(e.target.files[0]);
+        }
+
+        // Utility
+        function escapeHtml(str) {
+            return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>
