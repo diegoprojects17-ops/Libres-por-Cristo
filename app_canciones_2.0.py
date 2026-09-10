@@ -160,7 +160,7 @@ URL_JSONBIN = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
 HEADERS = {"Content-Type": "application/json", "X-Master-Key": MASTER_KEY}
 
 
-# 3. FUNCIONES EN LA NUBE Y ENUMERACIÓN AUTOMÁTICA
+# 3. FUNCIONES EN LA NUBE
 @st.cache_data(ttl=5)
 def cargar_datos_nube():
     try:
@@ -171,36 +171,6 @@ def cargar_datos_nube():
                 record["canciones"] = {}
             if "calendario" not in record:
                 record["calendario"] = {}
-
-            # PROCESO DE ENUMERACIÓN DE CANCIONES EXISTENTES EN JSONBIN
-            canciones = record["canciones"]
-            hubo_cambios = False
-            i = 1
-            nuevas_canciones = {}
-
-            for clave, datos in canciones.items():
-                titulo_actual = datos.get("titulo_real", "")
-                # Si el título no empieza con un número y punto (ej. "1. "), se le asigna
-                if not re.match(r"^\d+\.\s", titulo_actual):
-                    titulo_limpio = re.sub(r"^\d+\.\s*", "", titulo_actual)
-                    nuevo_titulo = f"{i}. {titulo_limpio}"
-                    datos["titulo_real"] = nuevo_titulo
-                    hubo_cambios = True
-                else:
-                    # Garantizar que lleve el correlativo consecutivo
-                    titulo_limpio = re.sub(r"^\d+\.\s*", "", titulo_actual)
-                    nuevo_titulo = f"{i}. {titulo_limpio}"
-                    if nuevo_titulo != titulo_actual:
-                        datos["titulo_real"] = nuevo_titulo
-                        hubo_cambios = True
-
-                nuevas_canciones[clave] = datos
-                i += 1
-
-            if hubo_cambios:
-                record["canciones"] = nuevas_canciones
-                guardar_datos_nube(record)
-
             return record
         else:
             st.error("Error al conectar con la base de datos en la nube.")
@@ -222,13 +192,6 @@ def guardar_datos_nube(datos):
     except Exception as e:
         st.error(f"Error al guardar: {e}")
         return False
-
-
-def formatear_titulo_con_numero(titulo_bruto, total_existentes):
-    """Limpia cualquier número previo y antepone el correlativo según la cantidad actual."""
-    titulo_limpio = re.sub(r"^\d+\.\s*", "", titulo_bruto.strip())
-    numero_nuevo = total_existentes + 1
-    return f"{numero_nuevo}. {titulo_limpio}"
 
 
 # 4. FUNCIONES DE TRANSPOSICIÓN Y DETECCIÓN
@@ -694,12 +657,8 @@ with pestana_agregar:
 
         if st.button("💾 Guardar Canción"):
             if nuevo_titulo and nuevos_acordes:
-                # Se asigna el número secuencial automáticamente
-                titulo_final = formatear_titulo_con_numero(nuevo_titulo, len(cancionero))
-                
                 clave_nueva = (
-                    re.sub(r"^\d+\.\s*", "", titulo_final)
-                    .lower()
+                    nuevo_titulo.lower()
                     .strip()
                     .replace("á", "a")
                     .replace("é", "e")
@@ -708,12 +667,12 @@ with pestana_agregar:
                     .replace("ú", "u")
                 )
                 cancionero[clave_nueva] = {
-                    "titulo_real": titulo_final,
+                    "titulo_real": nuevo_titulo.strip(),
                     "acordes": nuevos_acordes.strip(),
                 }
                 db["canciones"] = cancionero
                 if guardar_datos_nube(db):
-                    st.success(f"¡Canción guardada como '{titulo_final}'!")
+                    st.success("¡Canción guardada exitosamente!")
                     st.rerun()
 
     elif metodo == "Pegar Link Directo de Cifra Club 🎸":
@@ -843,12 +802,8 @@ with pestana_agregar:
         )
 
         if st.button("💾 Guardar Definitivamente"):
-            # Se asigna el número secuencial automáticamente
-            titulo_final = formatear_titulo_con_numero(titulo_f, len(cancionero))
-
             clave_nueva = (
-                re.sub(r"^\d+\.\s*", "", titulo_final)
-                .lower()
+                titulo_f.lower()
                 .strip()
                 .replace("á", "a")
                 .replace("é", "e")
@@ -857,12 +812,12 @@ with pestana_agregar:
                 .replace("ú", "u")
             )
             cancionero[clave_nueva] = {
-                "titulo_real": titulo_final,
+                "titulo_real": titulo_f.strip(),
                 "acordes": acordes_f.strip(),
             }
             db["canciones"] = cancionero
             if guardar_datos_nube(db):
-                st.success(f"¡Canción guardada como '{titulo_final}'!")
+                st.success("¡Canción guardada exitosamente!")
                 del st.session_state["temp_titulo"]
                 del st.session_state["temp_acordes"]
                 st.rerun()
