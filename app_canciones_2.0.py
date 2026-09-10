@@ -1,842 +1,524 @@
-from datetime import datetime
-from difflib import get_close_matches
-import json
-import re
-import urllib.parse
-from PIL import Image
-import requests
 import streamlit as st
 
-# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS (CRISTAL CON ACCENTO AZUL EN PUENTE)
-st.set_page_config(
-    page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
-)
+st.set_page_config(page_title="Chords App", layout="wide", initial_sidebar_state="collapsed")
 
-# Estilos CSS iOS 18 Liquid Glass
-st.markdown(
-    """
+html_code = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chords App - iOS 18 Glass</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <style>
-    /* Fondo principal fluido e hiper-minimalista */
-    html, body, [data-testid="stAppViewContainer"] {
-        background: radial-gradient(circle at 50% 0%, #1f2937 0%, #0b0f17 100%) !important;
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
-        color: #f3f4f6;
-    }
+        :root {
+            --bg-base: #0a0c10;
+            --glass-bg: rgba(22, 27, 34, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-blur: blur(20px) saturate(190%);
+            --accent-neon: #00f2fe;
+            --accent-purple: #9d4edd;
+            --accent-gradient: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+            --chord-color: #00f2fe;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            --nav-height: 70px;
+        }
 
-    /* Tarjetas Liquid Glass (Cristal Transparente / Blanco) */
-    .ios-card {
-        background: rgba(255, 255, 255, 0.05) !important;
-        backdrop-filter: blur(25px) saturate(180%) !important;
-        -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
-        border-radius: 22px !important;
-        padding: 22px !important;
-        margin-bottom: 20px !important;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-    }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    /* Línea divisora estilo cristal */
-    .ios-divider {
-        height: 1px;
-        background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.25) 50%, rgba(255, 255, 255, 0) 100%);
-        margin: 20px 0;
-        border: none;
-    }
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding-bottom: calc(var(--nav-height) + 20px);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(0, 242, 254, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(157, 78, 221, 0.08) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
 
-    /* Cajas de código con textura de cristal oscuro */
-    div[data-testid="stCodeBlock"] {
-        background: rgba(15, 23, 42, 0.6) !important;
-        backdrop-filter: blur(15px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-left: 4px solid rgba(255, 255, 255, 0.5) !important;
-        border-radius: 14px !important;
-    }
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 90;
+            background: rgba(10, 12, 16, 0.75);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-    /* Botones Táctiles Liquid Glass */
-    div.stButton > button {
-        background: rgba(255, 255, 255, 0.08) !important;
-        color: #ffffff !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-        border-radius: 14px !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.35) !important;
-        font-weight: 600 !important;
-        padding: 8px 16px !important;
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-        width: 100%;
-    }
+        .app-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #fff, var(--accent-neon));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-    div.stButton > button:hover {
-        transform: translateY(-1px) scale(0.99);
-        background: rgba(255, 255, 255, 0.18) !important;
-        border-color: rgba(255, 255, 255, 0.4) !important;
-        box-shadow: 0 6px 20px rgba(255, 255, 255, 0.1);
-    }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 16px;
+        }
 
-    /* Entradas e Inputs estilo cristal */
-    div[data-baseweb="input"] {
-        background-color: rgba(255, 255, 255, 0.04) !important;
-        backdrop-filter: blur(10px) !important;
-        border-radius: 14px !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        color: #ffffff !important;
-    }
+        .tab-content {
+            display: none;
+        }
 
-    /* Tabs / Control segmentado transparente */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: rgba(255, 255, 255, 0.04);
-        backdrop-filter: blur(15px);
-        border-radius: 18px;
-        padding: 5px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-    }
+        .tab-content.active {
+            display: block;
+        }
 
-    .stTabs [aria-selected="true"] {
-        background: rgba(255, 255, 255, 0.15) !important;
-        backdrop-filter: blur(10px) !important;
-        color: #ffffff !important;
-        border-radius: 14px;
-        border: 1px solid rgba(255, 255, 255, 0.25) !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 18px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-glass);
+        }
 
-    /* Badges visuales */
-    .badge-tono { 
-        background: rgba(255, 255, 255, 0.12); 
-        color: #ffffff; 
-        padding: 6px 14px; 
-        border-radius: 20px; 
-        font-weight: bold; 
-        font-size: 15px; 
-        display: inline-block; 
-        margin-bottom: 15px; 
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        backdrop-filter: blur(8px);
-    }
-    
-    .badge-intro { background-color: rgba(20, 184, 166, 0.2); color: #99f6e4; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(20, 184, 166, 0.4); }
-    .badge-estrofa { background-color: rgba(34, 197, 94, 0.2); color: #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(34, 197, 94, 0.4); }
-    .badge-coro { background-color: rgba(234, 179, 8, 0.2); color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(234, 179, 8, 0.4); }
-    .badge-precoro { background-color: rgba(168, 85, 247, 0.2); color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(168, 85, 247, 0.4); }
-    
-    /* CAMBIO: Badge de PUENTE en Cristal Azul Neón */
-    .badge-puente { 
-        background-color: rgba(59, 130, 246, 0.25); 
-        color: #93c5fd; 
-        padding: 4px 8px; 
-        border-radius: 6px; 
-        font-weight: bold; 
-        border: 1px solid rgba(59, 130, 246, 0.5); 
-        box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
-    }
+        .search-box {
+            position: relative;
+            margin-bottom: 16px;
+        }
 
-    .badge-default { background-color: rgba(255, 255, 255, 0.08); color: #e5e7eb; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.15); }
+        .search-box i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            width: 18px;
+        }
 
-    /* Badge contador en la barra lateral */
-    .counter-badge {
-        background: rgba(255, 255, 255, 0.2);
-        color: #ffffff;
-        padding: 4px 12px;
-        border-radius: 12px;
-        font-weight: bold;
-        font-size: 14px;
-        display: inline-block;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-    }
+        .input-field {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: 12px 14px 12px 42px;
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .input-field:focus {
+            border-color: var(--accent-neon);
+        }
+
+        textarea.input-field {
+            padding: 12px 14px;
+            min-height: 120px;
+            resize: vertical;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 10px 16px;
+            border-radius: var(--radius-md);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: #000;
+            border: none;
+            font-weight: 700;
+        }
+
+        .btn-purple {
+            background: linear-gradient(135deg, #9d4edd 0%, #7b2cbf 100%);
+            color: #fff;
+            border: none;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 8px;
+        }
+
+        .song-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+        }
+
+        .code-badge {
+            background: rgba(0, 242, 254, 0.12);
+            color: var(--accent-neon);
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        #reader-view {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-base);
+            z-index: 200;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .reader-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            position: sticky;
+            top: 0;
+            background: rgba(10, 12, 16, 0.85);
+            backdrop-filter: var(--glass-blur);
+            padding: 10px 0;
+            z-index: 10;
+        }
+
+        .reader-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: var(--glass-bg);
+            padding: 12px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--glass-border);
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chord-content {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.05rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            color: #e2e8f0;
+        }
+
+        .chord-content .chord {
+            color: var(--chord-color);
+            font-weight: 700;
+        }
+
+        .autoscroll-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(22, 27, 34, 0.95);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            padding: 10px 20px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 210;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0; right: 0;
+            height: var(--nav-height);
+            background: rgba(15, 18, 25, 0.85);
+            backdrop-filter: var(--glass-blur);
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            width: 33%;
+        }
+
+        .nav-item.active {
+            color: var(--accent-neon);
+        }
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+</head>
+<body>
 
-# 2. CONFIGURACIÓN DE BASE DE DATOS Y CLAVES
-BIN_ID = st.secrets.get("BIN_ID", "6a5f89cada38895dfe7b600f")
-MASTER_KEY = st.secrets.get(
-    "MASTER_KEY", "$2a$10$vknOXY8VuZW.tNRDuxItD.5YSkYK1V8hGisTCx56w3VwGCUDLLw0i"
-)
-OCR_KEY = st.secrets.get("OCR_KEY", "K87431578588957")
+    <header class="app-header">
+        <div class="app-title">
+            <i data-lucide="music"></i> Chords App
+        </div>
+    </header>
 
-URL_JSONBIN = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
-HEADERS = {"Content-Type": "application/json", "X-Master-Key": MASTER_KEY}
+    <main class="container">
+        <!-- Pestaña Canciones -->
+        <section id="tab-songs" class="tab-content active">
+            <div class="search-box">
+                <i data-lucide="search"></i>
+                <input type="text" id="search-input" class="input-field" placeholder="Buscar canción...">
+            </div>
 
+            <div id="songs-list"></div>
+        </section>
 
-# 3. FUNCIONES EN LA NUBE
-@st.cache_data(ttl=5)
-def cargar_datos_nube():
-    try:
-        respuesta = requests.get(URL_JSONBIN, headers=HEADERS)
-        if respuesta.status_code == 200:
-            return respuesta.json()["record"]
-        else:
-            st.error("Error al conectar con la base de datos en la nube.")
-            return {"canciones": {}, "calendario": {}}
-    except Exception as e:
-        st.error(f"Error de conexión: {e}")
-        return {"canciones": {}, "calendario": {}}
+        <!-- Pestaña Agregar -->
+        <section id="tab-add" class="tab-content">
+            <div class="glass-card">
+                <h3 style="margin-bottom: 14px;"><i data-lucide="plus-circle"></i> Agregar Canción</h3>
+                <div class="form-group">
+                    <label>Título</label>
+                    <input type="text" id="song-title" class="input-field" style="padding-left:14px;">
+                </div>
+                <div class="form-group">
+                    <label>Artista</label>
+                    <input type="text" id="song-artist" class="input-field" style="padding-left:14px;">
+                </div>
+                <div class="form-group">
+                    <label>Letra y Acordes</label>
+                    <textarea id="song-body" class="input-field"></textarea>
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="saveNewSong()">Guardar Canción</button>
+            </div>
+        </section>
 
+        <!-- Pestaña Setlists (Paso 3) -->
+        <section id="tab-setlists" class="tab-content">
+            <div class="glass-card">
+                <h3 style="margin-bottom: 14px;"><i data-lucide="list-music"></i> Crear Nuevo Setlist</h3>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="setlist-name-input" class="input-field" placeholder="Nombre del setlist..." style="padding-left:14px;">
+                    <button class="btn btn-purple" onclick="createSetlist()">Crear</button>
+                </div>
+            </div>
+            <div id="setlists-container"></div>
+        </section>
+    </main>
 
-def guardar_datos_nube(datos):
-    try:
-        respuesta = requests.put(URL_JSONBIN, json=datos, headers=HEADERS)
-        if respuesta.status_code == 200:
-            st.cache_data.clear()
-            return True
-        else:
-            st.error("No se pudieron guardar los datos en la nube.")
-            return False
-    except Exception as e:
-        st.error(f"Error al guardar: {e}")
-        return False
+    <!-- Vista de Lectura con Auto-Scroll (Paso 3) -->
+    <div id="reader-view">
+        <div class="reader-header">
+            <button class="btn btn-sm" onclick="closeReader()"><i data-lucide="arrow-left"></i> Volver</button>
+            <h3 id="reader-title">Título</h3>
+            <div></div>
+        </div>
 
+        <div class="reader-controls">
+            <button class="btn btn-sm btn-purple" onclick="toggleAutoScroll()">
+                <i data-lucide="play" id="scroll-icon"></i> Auto-Scroll
+            </button>
+        </div>
 
-# 4. LÓGICA DE TRANSPOSICIÓN Y DETECCIÓN DE TONO
-NOTAS_CROMATICAS = [
-    "C",
-    "C#",
-    "D",
-    "D#",
-    "E",
-    "F",
-    "F#",
-    "G",
-    "G#",
-    "A",
-    "A#",
-    "B",
-]
-NOTAS_EQUIVALENTES = {
-    "Db": "C#",
-    "Eb": "D#",
-    "Fb": "E",
-    "Gb": "F#",
-    "Ab": "G#",
-    "Bb": "A#",
-    "Cb": "B",
-}
+        <div id="reader-body" class="chord-content"></div>
 
-
-def transponer_acorde(acorde, semitonos):
-    def transponer_nota(m):
-        nota = m.group(1)
-        if nota in NOTAS_EQUIVALENTES:
-            nota = NOTAS_EQUIVALENTES[nota]
-        if nota in NOTAS_CROMATICAS:
-            idx = (NOTAS_CROMATICAS.index(nota) + semitonos) % 12
-            return NOTAS_CROMATICAS[idx]
-        return nota
-
-    patron = r"([A-G][#b]?)"
-    return re.sub(patron, transponer_nota, acorde)
-
-
-def transponer_texto_acordes(texto, semitonos):
-    if semitonos == 0:
-        return texto
-    lineas = texto.split("\n")
-    lineas_transp = []
-
-    for linea in lineas:
-        if "//" in linea:
-            partes = linea.split("//")
-            nombre_sec = partes[0]
-            acordes_sec = partes[1] if len(partes) > 1 else ""
-            resto = "//".join(partes[2:]) if len(partes) > 2 else ""
-
-            acordes_transp = transponer_acorde(acordes_sec, semitonos)
-
-            linea_reconstruida = f"{nombre_sec}//{acordes_transp}//"
-            if resto:
-                linea_reconstruida += f"{resto}"
-            lineas_transp.append(linea_reconstruida)
-        else:
-            palabras = linea.split()
-            if palabras and sum(
-                1 for p in palabras if re.match(r"^[A-G][#b]?", p)
-            ) >= len(palabras) * 0.4:
-                lineas_transp.append(transponer_acorde(linea, semitonos))
-            else:
-                lineas_transp.append(linea)
-
-    return "\n".join(lineas_transp)
-
-
-def detectar_tono_principal(texto_acordes):
-    patron_acorde = (
-        r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
-    )
-    acordes = re.findall(patron_acorde, texto_acordes)
-    if acordes:
-        return acordes[0]
-    return "N/A"
-
-
-def renderizar_bloques_color(texto_acordes):
-    tono_detectado = detectar_tono_principal(texto_acordes)
-
-    st.markdown(
-        f'<div class="badge-tono">🎵 Tonalidad actual: {tono_detectado}</div>',
-        unsafe_allow_html=True,
-    )
-
-    lineas = texto_acordes.split("\n")
-
-    for linea in lineas:
-        if "//" in linea:
-            partes = linea.split("//")
-            nombre_sec = partes[0].strip()
-            acordes_sec = partes[1].strip() if len(partes) > 1 else ""
-
-            sec_lower = nombre_sec.lower()
-            clase_badge = "badge-default"
-            if "intro" in sec_lower:
-                clase_badge = "badge-intro"
-            elif (
-                "estrofa" in sec_lower or "verso" in sec_lower or "est" in sec_lower
-            ):
-                clase_badge = "badge-estrofa"
-            elif "pre" in sec_lower:
-                clase_badge = "badge-precoro"
-            elif "coro" in sec_lower or "refrão" in sec_lower:
-                clase_badge = "badge-coro"
-            elif "puente" in sec_lower or "ponte" in sec_lower:
-                clase_badge = "badge-puente"
-
-            html_tarjeta = (
-                f'<div style="margin-bottom: 12px; background: rgba(255, 255, 255, 0.03); padding:'
-                f' 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);'
-                f' backdrop-filter: blur(10px);"><span class="{clase_badge}">{nombre_sec}</span><p'
-                ' style="font-family: monospace; font-size: 18px; color:'
-                ' #ffffff; margin: 10px 0 0 0; font-weight: bold; letter-spacing:'
-                f' 1px;">{acordes_sec}</p></div>'
-            )
-            st.markdown(html_tarjeta, unsafe_allow_html=True)
-        else:
-            if linea.strip():
-                st.markdown(
-                    f"<p style='font-family: monospace; font-size:"
-                    f" 16px; color: #e5e7eb;'>{linea}</p>",
-                    unsafe_allow_html=True,
-                )
-
-
-# Carga Inicial de Datos desde JSONBin
-db = cargar_datos_nube()
-cancionero = db.get("canciones", {})
-calendario = db.get("calendario", {})
-
-if "lista_servicio" not in st.session_state:
-    st.session_state.lista_servicio = []
-
-# Encabezado estilo Liquid Glass
-st.markdown(
-    """
-    <div class="ios-card" style="text-align: center; padding: 18px;">
-        <h1 style='color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;'>🎹 Libres por Cristo</h1>
+        <!-- Barra de Control de Auto-Scroll -->
+        <div id="autoscroll-bar" class="autoscroll-bar" style="display: none;">
+            <span style="font-size: 0.8rem;">Velocidad:</span>
+            <button class="btn btn-sm" onclick="adjustScrollSpeed(-1)">-</button>
+            <span id="scroll-speed-label" style="color:var(--accent-neon);">1x</span>
+            <button class="btn btn-sm" onclick="adjustScrollSpeed(1)">+</button>
+            <button class="btn btn-sm" onclick="toggleAutoScroll()">✕</button>
+        </div>
     </div>
-    """,
-    unsafe_allow_html=True,
-)
 
-# --- BARRA LATERAL OPTIMIZADA ---
-with st.sidebar:
-    cnt = len(st.session_state.lista_servicio)
-    st.markdown(
-        f"### 📋 Lista Borrador <span class='counter-badge'>{cnt}</span>",
-        unsafe_allow_html=True,
-    )
+    <!-- Navegación Inferior -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('songs')">
+            <i data-lucide="music"></i>
+            <span>Canciones</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('add')">
+            <i data-lucide="plus-circle"></i>
+            <span>Agregar</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('setlists')">
+            <i data-lucide="list-music"></i>
+            <span>Setlists</span>
+        </button>
+    </nav>
 
-    canciones_disponibles = sorted(
-        [datos["titulo_real"] for datos in cancionero.values() if "titulo_real" in datos]
-    )
+    <script>
+        let songs = JSON.parse(localStorage.getItem('chords_songs')) || [];
+        let setlists = JSON.parse(localStorage.getItem('chords_setlists')) || [];
+        let currentSong = null;
+        let autoScrollInterval = null;
+        let autoScrollSpeed = 1;
 
-    cancion_a_añadir = st.selectbox(
-        "Añadir canción al borrador:",
-        ["-- Seleccionar --"] + canciones_disponibles,
-    )
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderSongs();
+            renderSetlists();
+        });
 
-    if (
-        st.button("➕ Agregar canción")
-        and cancion_a_añadir != "-- Seleccionar --"
-    ):
-        if cancion_a_añadir not in st.session_state.lista_servicio:
-            st.session_state.lista_servicio.append(cancion_a_añadir)
-            st.rerun()
-        else:
-            st.warning("Ya está en tu borrador.")
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            const navMap = { 'songs': 0, 'add': 1, 'setlists': 2 };
+            document.querySelectorAll('.nav-item')[navMap[tabId]].classList.add('active');
+        }
 
-    st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
+        function renderSongs() {
+            const container = document.getElementById('songs-list');
+            container.innerHTML = '';
+            songs.forEach(song => {
+                const item = document.createElement('div');
+                item.className = 'song-item';
+                item.onclick = () => openReader(song.id);
+                item.innerHTML = `<div><h4>${song.title}</h4><p>${song.artist}</p></div>`;
+                container.appendChild(item);
+            });
+        }
 
-    if st.session_state.lista_servicio:
-        st.write("**Orden de ejecución:**")
+        function saveNewSong() {
+            const title = document.getElementById('song-title').value.trim();
+            const artist = document.getElementById('song-artist').value.trim();
+            const body = document.getElementById('song-body').value.trim();
+            if (!title || !body) return;
 
-        for i, cancion_nom in enumerate(st.session_state.lista_servicio):
-            tono_str = ""
-            for item in cancionero.values():
-                if item.get("titulo_real") == cancion_nom:
-                    tono_str = f"({detectar_tono_principal(item.get('acordes', ''))})"
-                    break
+            songs.push({ id: Date.now().toString(), title, artist, body });
+            localStorage.setItem('chords_songs', JSON.stringify(songs));
+            renderSongs();
+            switchTab('songs');
+        }
 
-            c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
-            with c1:
-                st.markdown(
-                    f"<p style='margin:0; font-size:13px;'><b>{i+1}. {cancion_nom}</b> <span style='color:#e2e8f0;'>{tono_str}</span></p>",
-                    unsafe_allow_html=True,
-                )
-            with c2:
-                if i > 0 and st.button("▲", key=f"up_{i}"):
-                    st.session_state.lista_servicio[i], (
-                        st.session_state.lista_servicio[i - 1]
-                    ) = (
-                        st.session_state.lista_servicio[i - 1],
-                        st.session_state.lista_servicio[i],
-                    )
-                    st.rerun()
-            with c3:
-                if (
-                    i < len(st.session_state.lista_servicio) - 1
-                    and st.button("▼", key=f"down_{i}")
-                ):
-                    st.session_state.lista_servicio[i], (
-                        st.session_state.lista_servicio[i + 1]
-                    ) = (
-                        st.session_state.lista_servicio[i + 1],
-                        st.session_state.lista_servicio[i],
-                    )
-                    st.rerun()
-            with c4:
-                if st.button("✕", key=f"del_{i}"):
-                    st.session_state.lista_servicio.pop(i)
-                    st.rerun()
+        function openReader(songId) {
+            currentSong = songs.find(s => s.id === songId);
+            if (!currentSong) return;
+            document.getElementById('reader-title').innerText = currentSong.title;
+            document.getElementById('reader-body').innerText = currentSong.body;
+            document.getElementById('reader-view').style.display = 'block';
+        }
 
-        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
+        function closeReader() {
+            stopAutoScroll();
+            document.getElementById('reader-view').style.display = 'none';
+        }
 
-        texto_borrador = "*REPERTORIO PROPUESTO*\n\n"
-        for idx, nom in enumerate(st.session_state.lista_servicio, 1):
-            texto_borrador += f"{idx}. {nom}\n"
+        /* --- AUTO-SCROLL (Paso 3) --- */
+        function toggleAutoScroll() {
+            if (autoScrollInterval) stopAutoScroll();
+            else startAutoScroll();
+        }
 
-        url_borrador_wa = f"https://api.whatsapp.com/send?text={urllib.parse.quote(texto_borrador)}"
-        st.markdown(
-            f"[📲 Enviar borrador a WhatsApp]({url_borrador_wa})",
-            unsafe_allow_html=True,
-        )
+        function startAutoScroll() {
+            const reader = document.getElementById('reader-view');
+            document.getElementById('autoscroll-bar').style.display = 'flex';
+            autoScrollInterval = setInterval(() => {
+                reader.scrollTop += 1;
+                if (reader.scrollTop + reader.clientHeight >= reader.scrollHeight) stopAutoScroll();
+            }, 50 / autoScrollSpeed);
+        }
 
-        if st.button("🗑️ Vaciar borrador"):
-            st.session_state.lista_servicio = []
-            st.rerun()
-    else:
-        st.info("El borrador está vacío. Agrega canciones para armar el orden.")
-
-# PESTAÑAS PRINCIPALES
-pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
-    "🔍 Buscar Canciones",
-    "📅 Calendario de Servicios",
-    "➕ Agregar Canción",
-])
-
-# --- PESTAÑA 1: BUSCADOR ---
-with pestana_buscar:
-    st.subheader("🔍 Buscador de Canciones")
-
-    titulos_reales = sorted(
-        [v["titulo_real"] for v in cancionero.values() if "titulo_real" in v]
-    )
-
-    if titulos_reales:
-        cancion_seleccionada = st.selectbox(
-            "Escribe el nombre de la canción:",
-            options=titulos_reales,
-            index=0,
-            key="select_cancion_unica",
-        )
-
-        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
-
-        clave_sel = next(
-            (
-                k
-                for k, v in cancionero.items()
-                if v["titulo_real"] == cancion_seleccionada
-            ),
-            None,
-        )
-
-        if clave_sel:
-            cancion = cancionero[clave_sel]
-
-            st.markdown(f"## 🎵 {cancion['titulo_real']}")
-
-            semitonos_v = st.slider(
-                "Transponer tono en vivo (Semitonos):", -6, 6, 0
-            )
-            acordes_mostrados = transponer_texto_acordes(
-                cancion["acordes"], semitonos_v
-            )
-
-            renderizar_bloques_color(acordes_mostrados)
-
-            with st.expander("🛠️ Editar datos o acordes"):
-                edit_titulo = st.text_input(
-                    "Título:", value=cancion["titulo_real"]
-                )
-                edit_acordes = st.text_area(
-                    "Acordes:", value=cancion["acordes"], height=150
-                )
-
-                col_s, col_d = st.columns(2)
-                with col_s:
-                    if st.button("💾 Guardar Cambios"):
-                        cancionero[clave_sel]["titulo_real"] = (
-                            edit_titulo.strip()
-                        )
-                        cancionero[clave_sel]["acordes"] = edit_acordes.strip()
-                        db["canciones"] = cancionero
-                        if guardar_datos_nube(db):
-                            st.success("¡Canción actualizada!")
-                            st.rerun()
-                with col_d:
-                    if st.button("🗑️ Eliminar Canción"):
-                        del cancionero[clave_sel]
-                        db["canciones"] = cancionero
-                        if guardar_datos_nube(db):
-                            st.success("Canción eliminada.")
-                            st.rerun()
-    else:
-        st.info("No hay canciones disponibles en el cancionero.")
-
-# --- PESTAÑA 2: CALENDARIO DE SERVICIOS ---
-with pestana_calendario:
-    opcion_cal = st.radio(
-        "Modalidad:",
-        ["Ver Agenda de Servicios", "Programar Nuevo Servicio ➕"],
-        horizontal=True,
-    )
-
-    if opcion_cal == "Programar Nuevo Servicio ➕":
-        st.markdown("### 📝 Programar un Servicio")
-        fecha_servicio = st.date_input("Fecha:", datetime.now())
-        tipo_servicio = st.selectbox(
-            "Evento:",
-            [
-                "Servicio Dominical",
-                "Reunión de Jóvenes",
-                "Servicio de Oración",
-                "Especial / Evento",
-            ],
-        )
-
-        canciones_para_fecha = st.multiselect(
-            "Selecciona el repertorio:",
-            canciones_disponibles,
-            default=st.session_state.lista_servicio,
-        )
-        notas_adicionales = st.text_input(
-            "Observaciones (Ej: Tocar en Sol, Ensayo 4 PM):"
-        )
-
-        if st.button("💾 Guardar en Agenda"):
-            if canciones_para_fecha:
-                fecha_str = fecha_servicio.strftime("%Y-%m-%d")
-                db["calendario"][fecha_str] = {
-                    "tipo": tipo_servicio,
-                    "canciones": canciones_para_fecha,
-                    "notas": notas_adicionales,
-                }
-                if guardar_datos_nube(db):
-                    st.success("¡Servicio agendado!")
-                    st.session_state.lista_servicio = []
-                    st.rerun()
-
-    elif opcion_cal == "Ver Agenda de Servicios":
-        if not calendario:
-            st.info("No hay servicios agendados aún.")
-        else:
-            fechas_ordenadas = sorted(calendario.keys())
-            fechas_formateadas = {
-                datetime.strptime(f, "%Y-%m-%d").strftime("%d/%m/%Y")
-                + f" - {calendario[f]['tipo']}": f
-                for f in fechas_ordenadas
+        function stopAutoScroll() {
+            if (autoScrollInterval) {
+                clearInterval(autoScrollInterval);
+                autoScrollInterval = null;
             }
+            document.getElementById('autoscroll-bar').style.display = 'none';
+        }
 
-            seleccion_fecha_label = st.selectbox(
-                "Selecciona una fecha:", list(fechas_formateadas.keys())
-            )
-            clave_fecha = fechas_formateadas[seleccion_fecha_label]
-            info_servicio = calendario[clave_fecha]
-
-            st.markdown(f"### 🎼 Repertorio: {info_servicio['tipo']}")
-            if info_servicio["notas"]:
-                st.info(f"📌 **Observación:** {info_servicio['notas']}")
-
-            texto_wa = (
-                f"*REPERTORIO {info_servicio['tipo'].upper()}*\n📅"
-                f" *Fecha:* {clave_fecha}\n\n"
-            )
-            for idx, c_nom in enumerate(info_servicio["canciones"], 1):
-                texto_wa += f"{idx}. {c_nom}\n"
-
-            if info_servicio["notas"]:
-                texto_wa += f"\n📌 *Notas:* {info_servicio['notas']}"
-
-            url_wa = (
-                f"https://api.whatsapp.com/send?text={urllib.parse.quote(texto_wa)}"
-            )
-            st.markdown(
-                f"[📲 Compartir Repertorio en WhatsApp]({url_wa})",
-                unsafe_allow_html=True,
-            )
-
-            if st.checkbox("🚀 MODO EN VIVO (Lectura Gigante para Servicio)"):
-                cancion_idx = st.slider(
-                    "Cambiar de canción:",
-                    1,
-                    len(info_servicio["canciones"]),
-                    1,
-                )
-                nombre_c = info_servicio["canciones"][cancion_idx - 1]
-
-                acordes_c = "Sin acordes"
-                for c_item in cancionero.values():
-                    if c_item.get("titulo_real") == nombre_c:
-                        acordes_c = c_item["acordes"]
-                        break
-
-                st.markdown(
-                    f"<h2 style='text-align: center; color: #ffffff;'>{cancion_idx}. {nombre_c}</h2>",
-                    unsafe_allow_html=True,
-                )
-
-                # TRANSPOSITOR SUTIL EN MODO EN VIVO
-                st_sem = st.number_input(
-                    "Transponer tono (Semitonos):",
-                    min_value=-6,
-                    max_value=6,
-                    value=0,
-                    step=1,
-                    key=f"trans_vivo_{cancion_idx}",
-                )
-                acordes_c_transp = transponer_texto_acordes(acordes_c, st_sem)
-
-                renderizar_bloques_color(acordes_c_transp)
-
-            else:
-                for i, nombre_c in enumerate(info_servicio["canciones"], 1):
-                    acordes_c = "Acordes no registrados"
-                    for c_item in cancionero.values():
-                        if c_item.get("titulo_real") == nombre_c:
-                            acordes_c = c_item["acordes"]
-                            break
-                    with st.expander(f"🎵 {i}. {nombre_c}", expanded=True):
-                        # AGREGADO: Transponedor sutil e insonoro dentro de cada expansión de repertorio
-                        col_t1, col_t2 = st.columns([3, 1])
-                        with col_t2:
-                            sem_sutil = st.number_input(
-                                "Tono",
-                                min_value=-6,
-                                max_value=6,
-                                value=0,
-                                step=1,
-                                key=f"trans_sutil_{clave_fecha}_{i}",
-                                help="Ajustar semitonos en vivo",
-                            )
-
-                        acordes_finales = transponer_texto_acordes(
-                            acordes_c, sem_sutil
-                        )
-                        renderizar_bloques_color(acordes_finales)
-
-            if st.button("🗑️ Eliminar este servicio"):
-                del db["calendario"][clave_fecha]
-                if guardar_datos_nube(db):
-                    st.success("Servicio eliminado.")
-                    st.rerun()
-
-# --- PESTAÑA 3: AGREGAR CANCIÓN ---
-with pestana_agregar:
-    metodo = st.radio(
-        "Fuente de origen:",
-        [
-            "Escribir manualmente",
-            "Pegar Link Directo de Cifra Club 🎸",
-            "Tomar una foto / Cargar Imagen 📸",
-        ],
-    )
-
-    if metodo == "Escribir manualmente":
-        nuevo_titulo = st.text_input("Título de la canción:")
-        nuevos_acordes = st.text_area(
-            "Estructura y acordes:",
-            placeholder="Intro // G D //\nEstrofa // G C D //",
-        )
-
-        if st.button("💾 Guardar Canción"):
-            if nuevo_titulo and nuevos_acordes:
-                clave_nueva = (
-                    nuevo_titulo.lower()
-                    .strip()
-                    .replace("á", "a")
-                    .replace("é", "e")
-                    .replace("í", "i")
-                    .replace("ó", "o")
-                    .replace("ú", "u")
-                )
-                cancionero[clave_nueva] = {
-                    "titulo_real": nuevo_titulo.strip(),
-                    "acordes": nuevos_acordes.strip(),
-                }
-                db["canciones"] = cancionero
-                if guardar_datos_nube(db):
-                    st.success("¡Canción guardada!")
-                    st.rerun()
-
-    elif metodo == "Pegar Link Directo de Cifra Club 🎸":
-        url_directa = st.text_input(
-            "Link de Cifra Club:",
-            placeholder="https://www.cifraclub.com/marcos-witt/cuan-grande-es-el/",
-        )
-
-        if st.button("📥 Importar desde Cifra Club"):
-            if url_directa:
-                st.session_state["url_cifra_seleccionada"] = url_directa
-            else:
-                st.error("Ingresa una URL válida.")
-
-        if "url_cifra_seleccionada" in st.session_state:
-            st.write("---")
-            semitonos_dict = {
-                "Tono Original": 0,
-                "+1 Semitono": 1,
-                "+2 Semitonos": 2,
-                "+3 Semitonos": 3,
-                "-1 Semitono": -1,
-                "-2 Semitonos": -2,
+        function adjustScrollSpeed(delta) {
+            autoScrollSpeed = Math.max(1, Math.min(5, autoScrollSpeed + delta));
+            document.getElementById('scroll-speed-label').innerText = `${autoScrollSpeed}x`;
+            if (autoScrollInterval) {
+                stopAutoScroll();
+                startAutoScroll();
             }
-            opcion_trans = st.selectbox(
-                "Transposición:", list(semitonos_dict.keys())
-            )
-            semitonos = semitonos_dict[opcion_trans]
+        }
 
-            if st.button("✨ Extraer y Procesar Estructura"):
-                with st.spinner("Analizando bloques y acordes..."):
-                    try:
-                        from bs4 import BeautifulSoup
+        /* --- CREADOR DE SETLISTS (Paso 3) --- */
+        function createSetlist() {
+            const input = document.getElementById('setlist-name-input');
+            const name = input.value.trim();
+            if (!name) return;
 
-                        res = requests.get(
-                            st.session_state["url_cifra_seleccionada"],
-                            headers={
-                                "User-Agent": (
-                                    "Mozilla/5.0 (Windows NT 10.0; Win64;"
-                                    " x64) Chrome/120.0.0.0 Safari/537.36"
-                                )
-                            },
-                        )
-                        soup = BeautifulSoup(res.text, "html.parser")
+            setlists.push({ id: Date.now().toString(), name, songIds: [] });
+            localStorage.setItem('chords_setlists', JSON.stringify(setlists));
+            input.value = '';
+            renderSetlists();
+        }
 
-                        titulo_elem = soup.find("h1", class_="t1") or soup.find(
-                            "h1"
-                        )
-                        titulo_real = (
-                            titulo_elem.get_text(strip=True)
-                            if titulo_elem
-                            else "Nueva Canción"
-                        )
+        function renderSetlists() {
+            const container = document.getElementById('setlists-container');
+            container.innerHTML = '';
+            setlists.forEach(setlist => {
+                const card = document.createElement('div');
+                card.className = 'glass-card';
+                card.innerHTML = `<h4>${setlist.name}</h4><p style="font-size:0.8rem; color:var(--text-muted);">${setlist.songIds.length} canciones</p>`;
+                container.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
+"""
 
-                        texto_resumido = parsear_acordes_cifra(soup)
-
-                        if texto_resumido:
-                            texto_transp = transponer_texto_acordes(
-                                texto_resumido, semitonos
-                            )
-                            st.session_state["temp_titulo"] = titulo_real
-                            st.session_state["temp_acordes"] = texto_transp
-                            st.success("¡Estructura extraída exitosamente!")
-                            del st.session_state["url_cifra_seleccionada"]
-                            st.rerun()
-                        else:
-                            st.error(
-                                "No se pudo identificar la estructura de la"
-                                " canción."
-                            )
-                    except Exception as e:
-                        st.error(f"Error al procesar la URL: {e}")
-
-    elif metodo == "Tomar una foto / Cargar Imagen 📸":
-        foto = st.file_uploader(
-            "Cargar imagen de la partitura / cifrado:",
-            type=["jpg", "jpeg", "png"],
-        )
-        if foto is not None:
-            st.image(Image.open(foto), caption="Imagen cargada", width=250)
-            if st.button("🪄 Digitalizar con OCR"):
-                with st.spinner("Escaneando texto..."):
-                    try:
-                        foto.seek(0)
-                        files = {
-                            "file": (foto.name, foto.getvalue(), foto.type)
-                        }
-                        payload = {
-                            "apikey": OCR_KEY,
-                            "language": "spa",
-                            "OCREngine": "2",
-                        }
-                        respuesta = requests.post(
-                            "https://api.ocr.space/parse/image",
-                            files=files,
-                            data=payload,
-                            timeout=20,
-                        )
-                        resultado = respuesta.json()
-
-                        if (
-                            resultado.get("OCRExitCode") == 1
-                            and resultado.get("ParsedResults")
-                        ):
-                            texto = resultado["ParsedResults"][0].get(
-                                "ParsedText", ""
-                            )
-                            lineas = [
-                                l.strip() for l in texto.split("\n") if l.strip()
-                            ]
-                            st.session_state["temp_titulo"] = (
-                                lineas[0] if lineas else "Nueva Canción"
-                            )
-                            st.session_state["temp_acordes"] = "\n".join(
-                                lineas[1:]
-                            )
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Error en OCR: {e}")
-
-    # Bloque de Confirmación y Guardado
-    if "temp_titulo" in st.session_state:
-        st.subheader("🔍 Confirmación Final:")
-        titulo_f = st.text_input(
-            "Título:", value=st.session_state["temp_titulo"]
-        )
-        acordes_f = st.text_area(
-            "Acordes Extraídos:",
-            value=st.session_state["temp_acordes"],
-            height=200,
-        )
-
-        if st.button("💾 Guardar Definitivamente"):
-            clave_nueva = (
-                titulo_f.lower()
-                .strip()
-                .replace("á", "a")
-                .replace("é", "e")
-                .replace("í", "i")
-                .replace("ó", "o")
-                .replace("ú", "u")
-            )
-            cancionero[clave_nueva] = {
-                "titulo_real": titulo_f.strip(),
-                "acordes": acordes_f.strip(),
-            }
-            db["canciones"] = cancionero
-            if guardar_datos_nube(db):
-                st.success("¡Canción guardada con éxito!")
-                del st.session_state["temp_titulo"]
-                del st.session_state["temp_acordes"]
-                st.rerun()
+st.components.v1.html(html_code, height=900, scrolling=True)
