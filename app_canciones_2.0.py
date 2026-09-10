@@ -7,20 +7,35 @@ from PIL import Image
 import requests
 import streamlit as st
 
-# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS (CRISTAL CON ACCENTO AZUL EN PUENTE)
+# 1. CONFIGURACIÓN DE PÁGINA Y COLOR DE BARRA DE ESTADO DEL MÓVIL
 st.set_page_config(
     page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
+)
+
+# Meta tag para adaptar la barra de estado superior en dispositivos móviles (Android/iOS)
+st.markdown(
+    '<meta name="theme-color" content="#0b0f17">', unsafe_allow_html=True
 )
 
 # Estilos CSS iOS 18 Liquid Glass
 st.markdown(
     """
     <style>
+    /* Ocultar la barra superior nativa de Streamlit (Fork, GitHub, Deploy, etc.) */
+    header[data-testid="stHeader"], .stAppHeader {
+        display: none !important;
+    }
+
     /* Fondo principal fluido e hiper-minimalista */
     html, body, [data-testid="stAppViewContainer"] {
         background: radial-gradient(circle at 50% 0%, #1f2937 0%, #0b0f17 100%) !important;
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
         color: #f3f4f6;
+    }
+
+    /* Ajuste de margen superior tras ocultar la barra nativa */
+    .block-container {
+        padding-top: 1.5rem !important;
     }
 
     /* Tarjetas Liquid Glass (Cristal Transparente / Blanco) */
@@ -122,7 +137,7 @@ st.markdown(
     .badge-coro { background-color: rgba(234, 179, 8, 0.2); color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(234, 179, 8, 0.4); }
     .badge-precoro { background-color: rgba(168, 85, 247, 0.2); color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(168, 85, 247, 0.4); }
     
-    /* CAMBIO: Badge de PUENTE en Cristal Azul Neón */
+    /* Badge de PUENTE en Cristal Azul Neón */
     .badge-puente { 
         background-color: rgba(59, 130, 246, 0.25); 
         color: #93c5fd; 
@@ -444,64 +459,69 @@ with pestana_buscar:
     )
 
     if titulos_reales:
+        # CAMBIO: index=None e placeholder para que no cargue ninguna canción automáticamente al entrar
         cancion_seleccionada = st.selectbox(
             "Escribe el nombre de la canción:",
             options=titulos_reales,
-            index=0,
+            index=None,
+            placeholder="Escribe o selecciona una canción...",
             key="select_cancion_unica",
         )
 
         st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
-        clave_sel = next(
-            (
-                k
-                for k, v in cancionero.items()
-                if v["titulo_real"] == cancion_seleccionada
-            ),
-            None,
-        )
-
-        if clave_sel:
-            cancion = cancionero[clave_sel]
-
-            st.markdown(f"## 🎵 {cancion['titulo_real']}")
-
-            semitonos_v = st.slider(
-                "Transponer tono en vivo (Semitonos):", -6, 6, 0
-            )
-            acordes_mostrados = transponer_texto_acordes(
-                cancion["acordes"], semitonos_v
+        if cancion_seleccionada:
+            clave_sel = next(
+                (
+                    k
+                    for k, v in cancionero.items()
+                    if v["titulo_real"] == cancion_seleccionada
+                ),
+                None,
             )
 
-            renderizar_bloques_color(acordes_mostrados)
+            if clave_sel:
+                cancion = cancionero[clave_sel]
 
-            with st.expander("🛠️ Editar datos o acordes"):
-                edit_titulo = st.text_input(
-                    "Título:", value=cancion["titulo_real"]
+                st.markdown(f"## 🎵 {cancion['titulo_real']}")
+
+                semitonos_v = st.slider(
+                    "Transponer tono en vivo (Semitonos):", -6, 6, 0
                 )
-                edit_acordes = st.text_area(
-                    "Acordes:", value=cancion["acordes"], height=150
+                acordes_mostrados = transponer_texto_acordes(
+                    cancion["acordes"], semitonos_v
                 )
 
-                col_s, col_d = st.columns(2)
-                with col_s:
-                    if st.button("💾 Guardar Cambios"):
-                        cancionero[clave_sel]["titulo_real"] = (
-                            edit_titulo.strip()
-                        )
-                        cancionero[clave_sel]["acordes"] = edit_acordes.strip()
-                        db["canciones"] = cancionero
-                        if guardar_datos_nube(db):
-                            st.success("¡Canción actualizada!")
-                            st.rerun()
-                with col_d:
-                    if st.button("🗑️ Eliminar Canción"):
-                        del cancionero[clave_sel]
-                        db["canciones"] = cancionero
-                        if guardar_datos_nube(db):
-                            st.success("Canción eliminada.")
-                            st.rerun()
+                renderizar_bloques_color(acordes_mostrados)
+
+                with st.expander("🛠️ Editar datos o acordes"):
+                    edit_titulo = st.text_input(
+                        "Título:", value=cancion["titulo_real"]
+                    )
+                    edit_acordes = st.text_area(
+                        "Acordes:", value=cancion["acordes"], height=150
+                    )
+
+                    col_s, col_d = st.columns(2)
+                    with col_s:
+                        if st.button("💾 Guardar Cambios"):
+                            cancionero[clave_sel]["titulo_real"] = (
+                                edit_titulo.strip()
+                            )
+                            cancionero[clave_sel]["acordes"] = edit_acordes.strip()
+                            db["canciones"] = cancionero
+                            if guardar_datos_nube(db):
+                                st.success("¡Canción actualizada!")
+                                st.rerun()
+                    with col_d:
+                        if st.button("🗑️ Eliminar Canción"):
+                            del cancionero[clave_sel]
+                            db["canciones"] = cancionero
+                            if guardar_datos_nube(db):
+                                st.success("Canción eliminada.")
+                                st.rerun()
+        else:
+            st.info("👆 Escribe o selecciona una canción para ver sus acordes.")
     else:
         st.info("No hay canciones disponibles en el cancionero.")
 
@@ -607,7 +627,6 @@ with pestana_calendario:
                     unsafe_allow_html=True,
                 )
 
-                # TRANSPOSITOR SUTIL EN MODO EN VIVO
                 st_sem = st.number_input(
                     "Transponer tono (Semitonos):",
                     min_value=-6,
@@ -628,7 +647,6 @@ with pestana_calendario:
                             acordes_c = c_item["acordes"]
                             break
                     with st.expander(f"🎵 {i}. {nombre_c}", expanded=True):
-                        # AGREGADO: Transponedor sutil e insonoro dentro de cada expansión de repertorio
                         col_t1, col_t2 = st.columns([3, 1])
                         with col_t2:
                             sem_sutil = st.number_input(
