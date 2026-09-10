@@ -7,12 +7,12 @@ from PIL import Image
 import requests
 import streamlit as st
 
-# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS (CRISTAL BLANCO / GRIS)
+# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS (CRISTAL CON ACCENTO AZUL EN PUENTE)
 st.set_page_config(
     page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
 )
 
-# Estilos CSS iOS 18 Liquid Glass / Glassmorphism Monocromático
+# Estilos CSS iOS 18 Liquid Glass
 st.markdown(
     """
     <style>
@@ -29,7 +29,7 @@ st.markdown(
         backdrop-filter: blur(25px) saturate(180%) !important;
         -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
         border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.3) !important; /* Reflejo superior */
+        border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 22px !important;
         padding: 22px !important;
         margin-bottom: 20px !important;
@@ -53,7 +53,7 @@ st.markdown(
         border-radius: 14px !important;
     }
 
-    /* Botones Táctiles Liquid Glass (Blanco / Gris Neón) */
+    /* Botones Táctiles Liquid Glass */
     div.stButton > button {
         background: rgba(255, 255, 255, 0.08) !important;
         color: #ffffff !important;
@@ -103,7 +103,7 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
-    /* Badges visuales en escala de grises y cristal */
+    /* Badges visuales */
     .badge-tono { 
         background: rgba(255, 255, 255, 0.12); 
         color: #ffffff; 
@@ -121,7 +121,18 @@ st.markdown(
     .badge-estrofa { background-color: rgba(34, 197, 94, 0.2); color: #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(34, 197, 94, 0.4); }
     .badge-coro { background-color: rgba(234, 179, 8, 0.2); color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(234, 179, 8, 0.4); }
     .badge-precoro { background-color: rgba(168, 85, 247, 0.2); color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(168, 85, 247, 0.4); }
-    .badge-puente { background-color: rgba(255, 255, 255, 0.15); color: #ffffff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.3); }
+    
+    /* CAMBIO: Badge de PUENTE en Cristal Azul Neón */
+    .badge-puente { 
+        background-color: rgba(59, 130, 246, 0.25); 
+        color: #93c5fd; 
+        padding: 4px 8px; 
+        border-radius: 6px; 
+        font-weight: bold; 
+        border: 1px solid rgba(59, 130, 246, 0.5); 
+        box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+    }
+
     .badge-default { background-color: rgba(255, 255, 255, 0.08); color: #e5e7eb; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.15); }
 
     /* Badge contador en la barra lateral */
@@ -596,7 +607,18 @@ with pestana_calendario:
                     unsafe_allow_html=True,
                 )
 
-                renderizar_bloques_color(acordes_c)
+                # TRANSPOSITOR SUTIL EN MODO EN VIVO
+                st_sem = st.number_input(
+                    "Transponer tono (Semitonos):",
+                    min_value=-6,
+                    max_value=6,
+                    value=0,
+                    step=1,
+                    key=f"trans_vivo_{cancion_idx}",
+                )
+                acordes_c_transp = transponer_texto_acordes(acordes_c, st_sem)
+
+                renderizar_bloques_color(acordes_c_transp)
 
             else:
                 for i, nombre_c in enumerate(info_servicio["canciones"], 1):
@@ -606,7 +628,23 @@ with pestana_calendario:
                             acordes_c = c_item["acordes"]
                             break
                     with st.expander(f"🎵 {i}. {nombre_c}", expanded=True):
-                        renderizar_bloques_color(acordes_c)
+                        # AGREGADO: Transponedor sutil e insonoro dentro de cada expansión de repertorio
+                        col_t1, col_t2 = st.columns([3, 1])
+                        with col_t2:
+                            sem_sutil = st.number_input(
+                                "Tono",
+                                min_value=-6,
+                                max_value=6,
+                                value=0,
+                                step=1,
+                                key=f"trans_sutil_{clave_fecha}_{i}",
+                                help="Ajustar semitonos en vivo",
+                            )
+
+                        acordes_finales = transponer_texto_acordes(
+                            acordes_c, sem_sutil
+                        )
+                        renderizar_bloques_color(acordes_finales)
 
             if st.button("🗑️ Eliminar este servicio"):
                 del db["calendario"][clave_fecha]
