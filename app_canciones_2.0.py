@@ -366,8 +366,9 @@ with st.sidebar:
 
             c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
             with c1:
+                # Se elimina la enumeración previa (i+1)
                 st.markdown(
-                    f"<p style='margin:0; font-size:13px;'><b>{i+1}. {cancion_nom}</b> <span style='color:#e2e8f0;'>{tono_str}</span></p>",
+                    f"<p style='margin:0; font-size:13px;'><b>{cancion_nom}</b> <span style='color:#e2e8f0;'>{tono_str}</span></p>",
                     unsafe_allow_html=True,
                 )
             with c2:
@@ -399,8 +400,9 @@ with st.sidebar:
         st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
         texto_borrador = "*REPERTORIO PROPUESTO*\n\n"
-        for idx, nom in enumerate(st.session_state.lista_servicio, 1):
-            texto_borrador += f"{idx}. {nom}\n"
+        # Se remueve la enumeración al armar el texto para WhatsApp
+        for nom in st.session_state.lista_servicio:
+            texto_borrador += f"• {nom}\n"
 
         url_borrador_wa = f"https://api.whatsapp.com/send?text={urllib.parse.quote(texto_borrador)}"
         st.markdown(
@@ -560,8 +562,9 @@ with pestana_calendario:
                 f"*REPERTORIO {info_servicio['tipo'].upper()}*\n📅"
                 f" *Fecha:* {clave_fecha}\n\n"
             )
-            for idx, c_nom in enumerate(info_servicio["canciones"], 1):
-                texto_wa += f"{idx}. {c_nom}\n"
+            # Se quita la numeración al generar el texto para WhatsApp
+            for c_nom in info_servicio["canciones"]:
+                texto_wa += f"• {c_nom}\n"
 
             if info_servicio["notas"]:
                 texto_wa += f"\n📌 *Notas:* {info_servicio['notas']}"
@@ -589,8 +592,9 @@ with pestana_calendario:
                         acordes_c = c_item["acordes"]
                         break
 
+                # Eliminado el prefijo numérico en la vista en vivo
                 st.markdown(
-                    f"<h2 style='text-align: center; color: #ffffff;'>{cancion_idx}. {nombre_c}</h2>",
+                    f"<h2 style='text-align: center; color: #ffffff;'>{nombre_c}</h2>",
                     unsafe_allow_html=True,
                 )
 
@@ -613,7 +617,8 @@ with pestana_calendario:
                         if c_item.get("titulo_real") == nombre_c:
                             acordes_c = c_item["acordes"]
                             break
-                    with st.expander(f"🎵 {i}. {nombre_c}", expanded=True):
+                    # Eliminada la enumeración en la tarjeta expandible
+                    with st.expander(f"🎵 {nombre_c}", expanded=True):
                         col_t1, col_t2 = st.columns([3, 1])
                         with col_t2:
                             sem_sutil = st.number_input(
