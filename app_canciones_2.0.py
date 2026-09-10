@@ -6,7 +6,6 @@ import urllib.parse
 from PIL import Image
 import requests
 import streamlit as st
-import streamlit.components.v1 as components
 
 # 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS
 st.set_page_config(
@@ -306,96 +305,6 @@ def renderizar_bloques_color(texto_acordes):
                 )
 
 
-# FUNCIONES DE COMPONENTES ADICIONALES (PASOS 1, 2 Y 3)
-
-def renderizar_auto_scroll():
-    """Renderiza la barra de control flotante de Auto-Scroll"""
-    st.markdown("### 📜 Control de Desplazamiento Automático")
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        velocidad = st.slider("Velocidad de despliegue", 1, 10, 3, key="velocidad_scroll")
-    with col2:
-        st.write("")
-        st.write("")
-
-    # Componente HTML / JS para scroll suave nativo en ventana principal
-    js_scroll = f"""
-    <div style="
-        background: rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 16px;
-        padding: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: space-around;
-        margin-bottom: 15px;
-    ">
-        <button id="btnScroll" onclick="toggleScroll()" style="
-            background: rgba(59, 130, 246, 0.6);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            width: 70%;
-            font-size: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        ">▶ Iniciar Auto-Scroll</button>
-        <button onclick="topScroll()" style="
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-            padding: 10px 15px;
-            border-radius: 12px;
-            font-weight: bold;
-            cursor: pointer;
-        ">⬆ Inicio</button>
-    </div>
-
-    <script>
-        var timer = null;
-        var isScrolling = false;
-        var speed = {velocidad};
-
-        function toggleScroll() {{
-            var btn = document.getElementById("btnScroll");
-            if (!isScrolling) {{
-                isScrolling = true;
-                btn.innerHTML = "⏸ Pausar Auto-Scroll";
-                btn.style.background = "rgba(239, 68, 68, 0.7)";
-                
-                // Buscar el contenedor padre de la app
-                var parentDoc = window.parent.document;
-                var mainContainer = parentDoc.querySelector('.main') || parentDoc.documentElement;
-
-                timer = setInterval(function() {{
-                    parentDoc.defaultView.scrollBy(0, 1);
-                }}, 110 - (speed * 10));
-            }} else {{
-                stopScroll();
-            }}
-        }}
-
-        function stopScroll() {{
-            var btn = document.getElementById("btnScroll");
-            isScrolling = false;
-            btn.innerHTML = "▶ Iniciar Auto-Scroll";
-            btn.style.background = "rgba(59, 130, 246, 0.6)";
-            clearInterval(timer);
-        }}
-
-        function topScroll() {{
-            stopScroll();
-            window.parent.scrollTo({{ top: 0, behavior: 'smooth' }});
-        }}
-    </script>
-    """
-    components.html(js_scroll, height=80)
-
-
 # Carga Inicial de Datos desde JSONBin
 db = cargar_datos_nube()
 cancionero = db.get("canciones", {})
@@ -575,9 +484,6 @@ with pestana_buscar:
 
             st.markdown(f"## 🎵 {cancion['titulo_real']}")
 
-            # MÓDULO DE AUTO-SCROLL
-            renderizar_auto_scroll()
-
             semitonos_v = st.slider(
                 "Transponer tono en vivo (Semitonos):", -6, 6, 0
             )
@@ -699,9 +605,6 @@ with pestana_calendario:
             )
 
             if st.checkbox("🚀 MODO EN VIVO (Lectura Gigante para Servicio)"):
-                # MÓDULO DE AUTO-SCROLL EN MODO EN VIVO
-                renderizar_auto_scroll()
-
                 cancion_idx = st.slider(
                     "Cambiar de canción:",
                     1,
