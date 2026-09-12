@@ -424,7 +424,7 @@ with st.sidebar:
 
     st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
-    cnt = len(st.session_state.lista_servicio)
+    cnt = len(cancionero)
     st.markdown(
         f"### 📋 Lista Borrador <span class='counter-badge'>{cnt}</span>",
         unsafe_allow_html=True,
