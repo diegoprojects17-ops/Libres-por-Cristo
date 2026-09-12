@@ -103,16 +103,17 @@ st.markdown(
     .chord-item {
         position: relative;
         display: inline-block;
-        color: #38bdf8;
+        color: #ffffff; /* Texto en blanco por defecto */
         font-weight: bold;
         cursor: pointer;
         padding: 2px 4px;
         border-radius: 4px;
-        transition: background 0.2s;
+        transition: background 0.2s, color 0.2s;
     }
 
     .chord-item:hover {
-        background: rgba(56, 189, 248, 0.2);
+        background: rgba(255, 255, 255, 0.15);
+        color: #38bdf8; /* Ilumina ligeramente al pasar el cursor */
     }
 
     .chord-tooltip {
