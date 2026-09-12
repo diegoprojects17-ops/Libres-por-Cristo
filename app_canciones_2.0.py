@@ -194,7 +194,95 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. FUNCIONES DE TRANSPOSICIÓN Y DETECCIÓN
+# 4. GENERADORES SVG DE DIAGRAMAS Y DICCIONARIO
+DICCIONARIO_ACORDES = {
+    "C": {"notas": ["C", "E", "G"], "guitarra": ["X", 3, 2, 0, 1, 0], "traste": 1},
+    "C#": {"notas": ["C#", "F", "G#"], "guitarra": ["X", 4, 3, 1, 2, 1], "traste": 1},
+    "Db": {"notas": ["C#", "F", "G#"], "guitarra": ["X", 4, 3, 1, 2, 1], "traste": 1},
+    "D": {"notas": ["D", "F#", "A"], "guitarra": ["X", "X", 0, 2, 3, 2], "traste": 1},
+    "D#": {"notas": ["D#", "G", "A#"], "guitarra": ["X", "X", 1, 3, 4, 3], "traste": 1},
+    "Eb": {"notas": ["D#", "G", "A#"], "guitarra": ["X", "X", 1, 3, 4, 3], "traste": 1},
+    "E": {"notas": ["E", "G#", "B"], "guitarra": [0, 2, 2, 1, 0, 0], "traste": 1},
+    "F": {"notas": ["F", "A", "C"], "guitarra": [1, 3, 3, 2, 1, 1], "traste": 1},
+    "F#": {"notas": ["F#", "A#", "C#"], "guitarra": [2, 4, 4, 3, 2, 2], "traste": 1},
+    "Gb": {"notas": ["F#", "A#", "C#"], "guitarra": [2, 4, 4, 3, 2, 2], "traste": 1},
+    "G": {"notas": ["G", "B", "D"], "guitarra": [3, 2, 0, 0, 0, 3], "traste": 1},
+    "G#": {"notas": ["G#", "C", "D#"], "guitarra": [4, 6, 6, 5, 4, 4], "traste": 1},
+    "Ab": {"notas": ["G#", "C", "D#"], "guitarra": [4, 6, 6, 5, 4, 4], "traste": 1},
+    "A": {"notas": ["A", "C#", "E"], "guitarra": ["X", 0, 2, 2, 2, 0], "traste": 1},
+    "A#": {"notas": ["A#", "D", "F"], "guitarra": ["X", 1, 3, 3, 3, 1], "traste": 1},
+    "Bb": {"notas": ["A#", "D", "F"], "guitarra": ["X", 1, 3, 3, 3, 1], "traste": 1},
+    "B": {"notas": ["B", "D#", "F#"], "guitarra": ["X", 2, 4, 4, 4, 2], "traste": 1},
+    "Cm": {"notas": ["C", "D#", "G"], "guitarra": ["X", 3, 5, 5, 4, 3], "traste": 1},
+    "Dm": {"notas": ["D", "F", "A"], "guitarra": ["X", "X", 0, 2, 3, 1], "traste": 1},
+    "Em": {"notas": ["E", "G", "B"], "guitarra": [0, 2, 2, 0, 0, 0], "traste": 1},
+    "Fm": {"notas": ["F", "G#", "C"], "guitarra": [1, 3, 3, 1, 1, 1], "traste": 1},
+    "Gm": {"notas": ["G", "A#", "D"], "guitarra": [3, 5, 5, 3, 3, 3], "traste": 1},
+    "Am": {"notas": ["A", "C", "E"], "guitarra": ["X", 0, 2, 2, 1, 0], "traste": 1},
+    "Bm": {"notas": ["B", "D", "F#"], "guitarra": ["X", 2, 4, 4, 3, 2], "traste": 1},
+}
+
+def generar_svg_teclado(notas_acorde):
+    blancas = [("C", 0), ("D", 26), ("E", 52), ("F", 78), ("G", 104), ("A", 130), ("B", 156), ("C2", 182), ("D2", 208), ("E2", 234)]
+    negras = [("C#", 17), ("D#", 43), ("F#", 95), ("G#", 121), ("A#", 147), ("C#2", 199), ("D#2", 225)]
+
+    svg = """<svg width="270" height="90" viewBox="0 0 270 90" xmlns="http://www.w3.org/2000/svg" style="border-radius: 8px; background: rgba(0,0,0,0.3); padding: 4px;">"""
+    for nota, x in blancas:
+        nota_base = nota.replace("2", "")
+        color = "#3b82f6" if nota_base in notas_acorde else "#ffffff"
+        svg += f'<rect x="{x}" y="0" width="24" height="80" rx="3" fill="{color}" stroke="#0f172a" stroke-width="1.5"/>'
+    for nota, x in negras:
+        nota_base = nota.replace("2", "")
+        color = "#60a5fa" if nota_base in notas_acorde else "#0f172a"
+        svg += f'<rect x="{x}" y="0" width="15" height="50" rx="2" fill="{color}" stroke="#000000" stroke-width="1"/>'
+    svg += "</svg>"
+    return svg
+
+def generar_svg_guitarra(posiciones, traste_inicio=1):
+    svg = f"""<svg width="150" height="170" viewBox="0 0 150 170" xmlns="http://www.w3.org/2000/svg" style="background: rgba(255,255,255,0.02); border-radius: 10px; padding: 5px;">
+    <text x="5" y="20" fill="#94a3b8" font-size="11" font-weight="bold">Traste {traste_inicio}</text>
+    """
+    for y in range(35, 160, 30):
+        svg += f'<line x1="25" y1="{y}" x2="125" y2="{y}" stroke="#64748b" stroke-width="2"/>'
+    for i, x in enumerate(range(25, 130, 20)):
+        grosor = 3 - (i * 0.3)
+        svg += f'<line x1="{x}" y1="35" x2="{x}" y2="155" stroke="#cbd5e1" stroke-width="{grosor}"/>'
+    x_cuerdas = list(range(25, 130, 20))
+    for i, pos in enumerate(posiciones):
+        cx = x_cuerdas[i]
+        if str(pos).upper() == "X":
+            svg += f'<text x="{cx-4}" y="28" fill="#ef4444" font-size="12" font-weight="bold">✕</text>'
+        elif pos == 0:
+            svg += f'<circle cx="{cx}" cy="24" r="4" fill="none" stroke="#22c55e" stroke-width="2"/>'
+        elif isinstance(pos, int) and pos > 0:
+            rel_traste = pos - traste_inicio + 1
+            cy = 35 + (rel_traste * 30) - 15
+            svg += f'<circle cx="{cx}" cy="{cy}" r="7.5" fill="#3b82f6" stroke="#ffffff" stroke-width="1"/>'
+            svg += f'<text x="{cx-3}" y="{cy+3.5}" fill="#ffffff" font-size="9" font-weight="bold">{pos}</text>'
+    svg += "</svg>"
+    return svg
+
+def renderizar_inspector_acordes(texto_acordes):
+    patron_acorde = r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
+    encontrados = list(dict.fromkeys(re.findall(patron_acorde, texto_acordes)))
+    acordes_validos = [a for a in encontrados if a in DICCIONARIO_ACORDES or re.sub(r'(m|maj|min|dim|aug|sus|add|[0-9]|\/).*', '', a) in DICCIONARIO_ACORDES]
+    
+    if acordes_validos:
+        with st.popover("🎸 / 🎹 Ver Posición de Acordes"):
+            acorde_sel = st.selectbox("Selecciona acorde:", acordes_validos)
+            base = re.sub(r'(m|maj|min|dim|aug|sus|add|[0-9]|\/).*', '', acorde_sel) if acorde_sel not in DICCIONARIO_ACORDES else acorde_sel
+            if base in DICCIONARIO_ACORDES:
+                datos = DICCIONARIO_ACORDES[base]
+                cg, ct = st.columns(2)
+                with cg:
+                    st.caption("**Guitarra**")
+                    st.markdown(generar_svg_guitarra(datos["guitarra"], datos["traste"]), unsafe_allow_html=True)
+                with ct:
+                    st.caption("**Teclado**")
+                    st.markdown(generar_svg_teclado(datos["notas"]), unsafe_allow_html=True)
+
+
+# 5. FUNCIONES DE TRANSPOSICIÓN Y DETECCIÓN
 NOTAS_CROMATICAS = [
     "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
 ]
@@ -261,10 +349,14 @@ def detectar_tono_principal(texto_acordes):
 def renderizar_bloques_color(texto_acordes):
     tono_detectado = detectar_tono_principal(texto_acordes)
 
-    st.markdown(
-        f'<div class="badge-tono">🎵 Tonalidad actual: {tono_detectado}</div>',
-        unsafe_allow_html=True,
-    )
+    col_t, col_i = st.columns([2, 1])
+    with col_t:
+        st.markdown(
+            f'<div class="badge-tono">🎵 Tonalidad actual: {tono_detectado}</div>',
+            unsafe_allow_html=True,
+        )
+    with col_i:
+        renderizar_inspector_acordes(texto_acordes)
 
     lineas = texto_acordes.split("\n")
 
@@ -366,7 +458,6 @@ with st.sidebar:
 
             c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
             with c1:
-                # Se elimina la enumeración previa (i+1)
                 st.markdown(
                     f"<p style='margin:0; font-size:13px;'><b>{cancion_nom}</b> <span style='color:#e2e8f0;'>{tono_str}</span></p>",
                     unsafe_allow_html=True,
@@ -400,7 +491,6 @@ with st.sidebar:
         st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
         texto_borrador = "*REPERTORIO PROPUESTO*\n\n"
-        # Se remueve la enumeración al armar el texto para WhatsApp
         for nom in st.session_state.lista_servicio:
             texto_borrador += f"• {nom}\n"
 
@@ -562,7 +652,6 @@ with pestana_calendario:
                 f"*REPERTORIO {info_servicio['tipo'].upper()}*\n📅"
                 f" *Fecha:* {clave_fecha}\n\n"
             )
-            # Se quita la numeración al generar el texto para WhatsApp
             for c_nom in info_servicio["canciones"]:
                 texto_wa += f"• {c_nom}\n"
 
@@ -592,7 +681,6 @@ with pestana_calendario:
                         acordes_c = c_item["acordes"]
                         break
 
-                # Eliminado el prefijo numérico en la vista en vivo
                 st.markdown(
                     f"<h2 style='text-align: center; color: #ffffff;'>{nombre_c}</h2>",
                     unsafe_allow_html=True,
@@ -617,7 +705,6 @@ with pestana_calendario:
                         if c_item.get("titulo_real") == nombre_c:
                             acordes_c = c_item["acordes"]
                             break
-                    # Eliminada la enumeración en la tarjeta expandible
                     with st.expander(f"🎵 {nombre_c}", expanded=True):
                         col_t1, col_t2 = st.columns([3, 1])
                         with col_t2:
