@@ -7,12 +7,12 @@ from PIL import Image
 import requests
 import streamlit as st
 
-# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS
+# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS + TOOLTIPS
 st.set_page_config(
     page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
 )
 
-# Estilos CSS iOS 18 Liquid Glass
+# Estilos CSS iOS 18 Liquid Glass y Tooltips Interactivos para Acordes
 st.markdown(
     """
     <style>
@@ -44,15 +44,6 @@ st.markdown(
         border: none;
     }
 
-    /* Cajas de código con textura de cristal oscuro */
-    div[data-testid="stCodeBlock"] {
-        background: rgba(15, 23, 42, 0.6) !important;
-        backdrop-filter: blur(15px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-left: 4px solid rgba(255, 255, 255, 0.5) !important;
-        border-radius: 14px !important;
-    }
-
     /* Botones Táctiles Liquid Glass */
     div.stButton > button {
         background: rgba(255, 255, 255, 0.08) !important;
@@ -76,33 +67,6 @@ st.markdown(
         box-shadow: 0 6px 20px rgba(255, 255, 255, 0.1);
     }
 
-    /* Entradas e Inputs estilo cristal */
-    div[data-baseweb="input"] {
-        background-color: rgba(255, 255, 255, 0.04) !important;
-        backdrop-filter: blur(10px) !important;
-        border-radius: 14px !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        color: #ffffff !important;
-    }
-
-    /* Tabs / Control segmentado transparente */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: rgba(255, 255, 255, 0.04);
-        backdrop-filter: blur(15px);
-        border-radius: 18px;
-        padding: 5px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .stTabs [aria-selected="true"] {
-        background: rgba(255, 255, 255, 0.15) !important;
-        backdrop-filter: blur(10px) !important;
-        color: #ffffff !important;
-        border-radius: 14px;
-        border: 1px solid rgba(255, 255, 255, 0.25) !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
     /* Badges visuales */
     .badge-tono { 
         background: rgba(255, 255, 255, 0.12); 
@@ -121,17 +85,7 @@ st.markdown(
     .badge-estrofa { background-color: rgba(34, 197, 94, 0.2); color: #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(34, 197, 94, 0.4); }
     .badge-coro { background-color: rgba(234, 179, 8, 0.2); color: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(234, 179, 8, 0.4); }
     .badge-precoro { background-color: rgba(168, 85, 247, 0.2); color: #e9d5ff; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(168, 85, 247, 0.4); }
-    
-    .badge-puente { 
-        background-color: rgba(59, 130, 246, 0.25); 
-        color: #93c5fd; 
-        padding: 4px 8px; 
-        border-radius: 6px; 
-        font-weight: bold; 
-        border: 1px solid rgba(59, 130, 246, 0.5); 
-        box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
-    }
-
+    .badge-puente { background-color: rgba(59, 130, 246, 0.25); color: #93c5fd; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(59, 130, 246, 0.5); }
     .badge-default { background-color: rgba(255, 255, 255, 0.08); color: #e5e7eb; padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.15); }
 
     .counter-badge {
@@ -143,6 +97,47 @@ st.markdown(
         font-size: 14px;
         display: inline-block;
         border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    /* ESTILOS PARA TOOLTIPS INTERACTIVOS DE ACORDES */
+    .chord-item {
+        position: relative;
+        display: inline-block;
+        color: #38bdf8;
+        font-weight: bold;
+        cursor: pointer;
+        padding: 2px 4px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .chord-item:hover {
+        background: rgba(56, 189, 248, 0.2);
+    }
+
+    .chord-tooltip {
+        visibility: hidden;
+        opacity: 0;
+        width: max-content;
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        padding: 10px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%) translateY(10px);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        pointer-events: none;
+    }
+
+    .chord-item:hover .chord-tooltip, .chord-item:focus .chord-tooltip {
+        visibility: visible;
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
     }
     </style>
     """,
@@ -194,7 +189,7 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. GENERADORES SVG DE DIAGRAMAS Y DICCIONARIO
+# 4. DICCIONARIO Y GENERADORES SVG
 DICCIONARIO_ACORDES = {
     "C": {"notas": ["C", "E", "G"], "guitarra": ["X", 3, 2, 0, 1, 0], "traste": 1},
     "C#": {"notas": ["C#", "F", "G#"], "guitarra": ["X", 4, 3, 1, 2, 1], "traste": 1},
@@ -226,7 +221,7 @@ def generar_svg_teclado(notas_acorde):
     blancas = [("C", 0), ("D", 26), ("E", 52), ("F", 78), ("G", 104), ("A", 130), ("B", 156), ("C2", 182), ("D2", 208), ("E2", 234)]
     negras = [("C#", 17), ("D#", 43), ("F#", 95), ("G#", 121), ("A#", 147), ("C#2", 199), ("D#2", 225)]
 
-    svg = """<svg width="270" height="90" viewBox="0 0 270 90" xmlns="http://www.w3.org/2000/svg" style="border-radius: 8px; background: rgba(0,0,0,0.3); padding: 4px;">"""
+    svg = """<svg width="220" height="75" viewBox="0 0 270 90" xmlns="http://www.w3.org/2000/svg" style="border-radius: 8px; background: rgba(0,0,0,0.5); padding: 4px;">"""
     for nota, x in blancas:
         nota_base = nota.replace("2", "")
         color = "#3b82f6" if nota_base in notas_acorde else "#ffffff"
@@ -239,7 +234,7 @@ def generar_svg_teclado(notas_acorde):
     return svg
 
 def generar_svg_guitarra(posiciones, traste_inicio=1):
-    svg = f"""<svg width="150" height="170" viewBox="0 0 150 170" xmlns="http://www.w3.org/2000/svg" style="background: rgba(255,255,255,0.02); border-radius: 10px; padding: 5px;">
+    svg = f"""<svg width="130" height="150" viewBox="0 0 150 170" xmlns="http://www.w3.org/2000/svg" style="background: rgba(0,0,0,0.5); border-radius: 10px; padding: 5px;">
     <text x="5" y="20" fill="#94a3b8" font-size="11" font-weight="bold">Traste {traste_inicio}</text>
     """
     for y in range(35, 160, 30):
@@ -261,25 +256,6 @@ def generar_svg_guitarra(posiciones, traste_inicio=1):
             svg += f'<text x="{cx-3}" y="{cy+3.5}" fill="#ffffff" font-size="9" font-weight="bold">{pos}</text>'
     svg += "</svg>"
     return svg
-
-def renderizar_inspector_acordes(texto_acordes):
-    patron_acorde = r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
-    encontrados = list(dict.fromkeys(re.findall(patron_acorde, texto_acordes)))
-    acordes_validos = [a for a in encontrados if a in DICCIONARIO_ACORDES or re.sub(r'(m|maj|min|dim|aug|sus|add|[0-9]|\/).*', '', a) in DICCIONARIO_ACORDES]
-    
-    if acordes_validos:
-        with st.popover("🎸 / 🎹 Ver Posición de Acordes"):
-            acorde_sel = st.selectbox("Selecciona acorde:", acordes_validos)
-            base = re.sub(r'(m|maj|min|dim|aug|sus|add|[0-9]|\/).*', '', acorde_sel) if acorde_sel not in DICCIONARIO_ACORDES else acorde_sel
-            if base in DICCIONARIO_ACORDES:
-                datos = DICCIONARIO_ACORDES[base]
-                cg, ct = st.columns(2)
-                with cg:
-                    st.caption("**Guitarra**")
-                    st.markdown(generar_svg_guitarra(datos["guitarra"], datos["traste"]), unsafe_allow_html=True)
-                with ct:
-                    st.caption("**Teclado**")
-                    st.markdown(generar_svg_teclado(datos["notas"]), unsafe_allow_html=True)
 
 
 # 5. FUNCIONES DE TRANSPOSICIÓN Y DETECCIÓN
@@ -346,17 +322,33 @@ def detectar_tono_principal(texto_acordes):
     return "N/A"
 
 
-def renderizar_bloques_color(texto_acordes):
+def convertir_acordes_en_html_interactivo(texto_linea, instrumento):
+    patron_acorde = r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
+
+    def reemplazar(match):
+        acorde_original = match.group(0)
+        base = re.sub(r'(m|maj|min|dim|aug|sus|add|[0-9]|\/).*', '', acorde_original) if acorde_original not in DICCIONARIO_ACORDES else acorde_original
+
+        if base in DICCIONARIO_ACORDES:
+            datos = DICCIONARIO_ACORDES[base]
+            if instrumento == "🎸 Guitarra":
+                svg_content = generar_svg_guitarra(datos["guitarra"], datos["traste"])
+            else:
+                svg_content = generar_svg_teclado(datos["notas"])
+
+            return f'''<span class="chord-item" tabindex="0">{acorde_original}<span class="chord-tooltip">{svg_content}</span></span>'''
+        return acorde_original
+
+    return re.sub(patron_acorde, reemplazar, texto_linea)
+
+
+def renderizar_bloques_color(texto_acordes, instrumento):
     tono_detectado = detectar_tono_principal(texto_acordes)
 
-    col_t, col_i = st.columns([2, 1])
-    with col_t:
-        st.markdown(
-            f'<div class="badge-tono">🎵 Tonalidad actual: {tono_detectado}</div>',
-            unsafe_allow_html=True,
-        )
-    with col_i:
-        renderizar_inspector_acordes(texto_acordes)
+    st.markdown(
+        f'<div class="badge-tono">🎵 Tonalidad actual: {tono_detectado}</div>',
+        unsafe_allow_html=True,
+    )
 
     lineas = texto_acordes.split("\n")
 
@@ -381,20 +373,23 @@ def renderizar_bloques_color(texto_acordes):
             elif "puente" in sec_lower or "ponte" in sec_lower:
                 clase_badge = "badge-puente"
 
+            acordes_html = convertir_acordes_en_html_interactivo(acordes_sec, instrumento)
+
             html_tarjeta = (
                 f'<div style="margin-bottom: 12px; background: rgba(255, 255, 255, 0.03); padding:'
                 f' 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);'
                 f' backdrop-filter: blur(10px);"><span class="{clase_badge}">{nombre_sec}</span><p'
                 ' style="font-family: monospace; font-size: 18px; color:'
                 ' #ffffff; margin: 10px 0 0 0; font-weight: bold; letter-spacing:'
-                f' 1px;">{acordes_sec}</p></div>'
+                f' 1px;">{acordes_html}</p></div>'
             )
             st.markdown(html_tarjeta, unsafe_allow_html=True)
         else:
             if linea.strip():
+                linea_html = convertir_acordes_en_html_interactivo(linea, instrumento)
                 st.markdown(
                     f"<p style='font-family: monospace; font-size:"
-                    f" 16px; color: #e5e7eb;'>{linea}</p>",
+                    f" 16px; color: #e5e7eb;'>{linea_html}</p>",
                     unsafe_allow_html=True,
                 )
 
@@ -417,8 +412,17 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BARRA LATERAL (LISTA BORRADOR) ---
+# --- BARRA LATERAL (PANEL DESLIZANTE CON SELECTOR DE INSTRUMENTO) ---
 with st.sidebar:
+    st.markdown("### 🎼 Instrumento")
+    instrumento_seleccionado = st.radio(
+        "Mostrar acordes para:",
+        ["🎸 Guitarra", "🎹 Teclado"],
+        key="instrumento_selector"
+    )
+
+    st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
+
     cnt = len(st.session_state.lista_servicio)
     st.markdown(
         f"### 📋 Lista Borrador <span class='counter-badge'>{cnt}</span>",
@@ -553,7 +557,7 @@ with pestana_buscar:
                 cancion["acordes"], semitonos_v
             )
 
-            renderizar_bloques_color(acordes_mostrados)
+            renderizar_bloques_color(acordes_mostrados, instrumento_seleccionado)
 
             with st.expander("🛠️ Editar datos o acordes"):
                 edit_titulo = st.text_input(
@@ -696,7 +700,7 @@ with pestana_calendario:
                 )
                 acordes_c_transp = transponer_texto_acordes(acordes_c, st_sem)
 
-                renderizar_bloques_color(acordes_c_transp)
+                renderizar_bloques_color(acordes_c_transp, instrumento_seleccionado)
 
             else:
                 for i, nombre_c in enumerate(info_servicio["canciones"], 1):
@@ -721,7 +725,7 @@ with pestana_calendario:
                         acordes_finales = transponer_texto_acordes(
                             acordes_c, sem_sutil
                         )
-                        renderizar_bloques_color(acordes_finales)
+                        renderizar_bloques_color(acordes_finales, instrumento_seleccionado)
 
             if st.button("🗑️ Eliminar este servicio"):
                 del db["calendario"][clave_fecha]
