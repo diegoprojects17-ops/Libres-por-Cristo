@@ -103,7 +103,7 @@ st.markdown(
     .chord-item {
         position: relative;
         display: inline-block;
-        color: #ffffff; /* Texto en blanco por defecto */
+        color: #ffffff;
         font-weight: bold;
         cursor: pointer;
         padding: 2px 4px;
@@ -113,7 +113,7 @@ st.markdown(
 
     .chord-item:hover {
         background: rgba(255, 255, 255, 0.15);
-        color: #38bdf8; /* Ilumina ligeramente al pasar el cursor */
+        color: #38bdf8;
     }
 
     .chord-tooltip {
@@ -190,71 +190,106 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. DICCIONARIO Y GENERADORES SVG
+# 4. DICCIONARIO CON CEJILLA (BARRA) Y DEDOS ACTUALIZADOS
 DICCIONARIO_ACORDES = {
-    "C": {"notas": ["C", "E", "G"], "guitarra": ["X", 3, 2, 0, 1, 0], "traste": 1},
-    "C#": {"notas": ["C#", "F", "G#"], "guitarra": ["X", 4, 3, 1, 2, 1], "traste": 1},
-    "Db": {"notas": ["C#", "F", "G#"], "guitarra": ["X", 4, 3, 1, 2, 1], "traste": 1},
-    "D": {"notas": ["D", "F#", "A"], "guitarra": ["X", "X", 0, 2, 3, 2], "traste": 1},
-    "D#": {"notas": ["D#", "G", "A#"], "guitarra": ["X", "X", 1, 3, 4, 3], "traste": 1},
-    "Eb": {"notas": ["D#", "G", "A#"], "guitarra": ["X", "X", 1, 3, 4, 3], "traste": 1},
-    "E": {"notas": ["E", "G#", "B"], "guitarra": [0, 2, 2, 1, 0, 0], "traste": 1},
-    "F": {"notas": ["F", "A", "C"], "guitarra": [1, 3, 3, 2, 1, 1], "traste": 1},
-    "F#": {"notas": ["F#", "A#", "C#"], "guitarra": [2, 4, 4, 3, 2, 2], "traste": 1},
-    "Gb": {"notas": ["F#", "A#", "C#"], "guitarra": [2, 4, 4, 3, 2, 2], "traste": 1},
-    "G": {"notas": ["G", "B", "D"], "guitarra": [3, 2, 0, 0, 0, 3], "traste": 1},
-    "G#": {"notas": ["G#", "C", "D#"], "guitarra": [4, 6, 6, 5, 4, 4], "traste": 1},
-    "Ab": {"notas": ["G#", "C", "D#"], "guitarra": [4, 6, 6, 5, 4, 4], "traste": 1},
-    "A": {"notas": ["A", "C#", "E"], "guitarra": ["X", 0, 2, 2, 2, 0], "traste": 1},
-    "A#": {"notas": ["A#", "D", "F"], "guitarra": ["X", 1, 3, 3, 3, 1], "traste": 1},
-    "Bb": {"notas": ["A#", "D", "F"], "guitarra": ["X", 1, 3, 3, 3, 1], "traste": 1},
-    "B": {"notas": ["B", "D#", "F#"], "guitarra": ["X", 2, 4, 4, 4, 2], "traste": 1},
-    "Cm": {"notas": ["C", "D#", "G"], "guitarra": ["X", 3, 5, 5, 4, 3], "traste": 1},
-    "Dm": {"notas": ["D", "F", "A"], "guitarra": ["X", "X", 0, 2, 3, 1], "traste": 1},
-    "Em": {"notas": ["E", "G", "B"], "guitarra": [0, 2, 2, 0, 0, 0], "traste": 1},
-    "Fm": {"notas": ["F", "G#", "C"], "guitarra": [1, 3, 3, 1, 1, 1], "traste": 1},
-    "Gm": {"notas": ["G", "A#", "D"], "guitarra": [3, 5, 5, 3, 3, 3], "traste": 1},
-    "Am": {"notas": ["A", "C", "E"], "guitarra": ["X", 0, 2, 2, 1, 0], "traste": 1},
-    "Bm": {"notas": ["B", "D", "F#"], "guitarra": ["X", 2, 4, 4, 3, 2], "traste": 1},
+    "C": {"notas": ["C", "E", "G"], "guitarra": ["X", 3, 2, 0, 1, 0], "dedos": ["", "3", "2", "", "1", ""], "barra": None},
+    "C#": {"notas": ["C#", "F", "G#"], "guitarra": ["X", 4, 6, 6, 6, 4], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 4, "desde": 1, "hasta": 5}},
+    "Db": {"notas": ["C#", "F", "G#"], "guitarra": ["X", 4, 6, 6, 6, 4], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 4, "desde": 1, "hasta": 5}},
+    "C#m": {"notas": ["C#", "E", "G#"], "guitarra": ["X", 4, 6, 6, 5, 4], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 4, "desde": 1, "hasta": 5}},
+    "D": {"notas": ["D", "F#", "A"], "guitarra": ["X", "X", 0, 2, 3, 2], "dedos": ["", "", "", "1", "3", "2"], "barra": None},
+    "D#": {"notas": ["D#", "G", "A#"], "guitarra": ["X", 6, 8, 8, 8, 6], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 6, "desde": 1, "hasta": 5}},
+    "Eb": {"notas": ["D#", "G", "A#"], "guitarra": ["X", 6, 8, 8, 8, 6], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 6, "desde": 1, "hasta": 5}},
+    "Dm": {"notas": ["D", "F", "A"], "guitarra": ["X", "X", 0, 2, 3, 1], "dedos": ["", "", "", "2", "3", "1"], "barra": None},
+    "D#m": {"notas": ["D#", "F#", "A#"], "guitarra": ["X", 6, 8, 8, 7, 6], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 6, "desde": 1, "hasta": 5}},
+    "E": {"notas": ["E", "G#", "B"], "guitarra": [0, 2, 2, 1, 0, 0], "dedos": ["", "2", "3", "1", "", ""], "barra": None},
+    "Em": {"notas": ["E", "G", "B"], "guitarra": [0, 2, 2, 0, 0, 0], "dedos": ["", "2", "3", "", "", ""], "barra": None},
+    "F": {"notas": ["F", "A", "C"], "guitarra": [1, 3, 3, 2, 1, 1], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 1, "desde": 0, "hasta": 5}},
+    "F#": {"notas": ["F#", "A#", "C#"], "guitarra": [2, 4, 4, 3, 2, 2], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 2, "desde": 0, "hasta": 5}},
+    "Gb": {"notas": ["F#", "A#", "C#"], "guitarra": [2, 4, 4, 3, 2, 2], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 2, "desde": 0, "hasta": 5}},
+    "Fm": {"notas": ["F", "G#", "C"], "guitarra": [1, 3, 3, 1, 1, 1], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 1, "desde": 0, "hasta": 5}},
+    "F#m": {"notas": ["F#", "A", "C#"], "guitarra": [2, 4, 4, 2, 2, 2], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 2, "desde": 0, "hasta": 5}},
+    "G": {"notas": ["G", "B", "D"], "guitarra": [3, 2, 0, 0, 0, 3], "dedos": ["2", "1", "", "", "", "3"], "barra": None},
+    "G#": {"notas": ["G#", "C", "D#"], "guitarra": [4, 6, 6, 5, 4, 4], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 4, "desde": 0, "hasta": 5}},
+    "Ab": {"notas": ["G#", "C", "D#"], "guitarra": [4, 6, 6, 5, 4, 4], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 4, "desde": 0, "hasta": 5}},
+    "Gm": {"notas": ["G", "A#", "D"], "guitarra": [3, 5, 5, 3, 3, 3], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 3, "desde": 0, "hasta": 5}},
+    "G#m": {"notas": ["G#", "B", "D#"], "guitarra": [4, 6, 6, 4, 4, 4], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 4, "desde": 0, "hasta": 5}},
+    "A": {"notas": ["A", "C#", "E"], "guitarra": ["X", 0, 2, 2, 2, 0], "dedos": ["", "", "1", "2", "3", ""], "barra": None},
+    "A#": {"notas": ["A#", "D", "F"], "guitarra": ["X", 1, 3, 3, 3, 1], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 1, "desde": 1, "hasta": 5}},
+    "Bb": {"notas": ["A#", "D", "F"], "guitarra": ["X", 1, 3, 3, 3, 1], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 1, "desde": 1, "hasta": 5}},
+    "Am": {"notas": ["A", "C", "E"], "guitarra": ["X", 0, 2, 2, 1, 0], "dedos": ["", "", "2", "3", "1", ""], "barra": None},
+    "A#m": {"notas": ["A#", "C#", "F"], "guitarra": ["X", 1, 3, 3, 2, 1], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 1, "desde": 1, "hasta": 5}},
+    "B": {"notas": ["B", "D#", "F#"], "guitarra": ["X", 2, 4, 4, 4, 2], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 2, "desde": 1, "hasta": 5}},
+    "Bm": {"notas": ["B", "D", "F#"], "guitarra": ["X", 2, 4, 4, 3, 2], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 2, "desde": 1, "hasta": 5}},
 }
 
+# MEJORA 3: VISTA DE TECLADO LIMITADA A 1 OCTAVA (TRÍADA)
 def generar_svg_teclado(notas_acorde):
-    blancas = [("C", 0), ("D", 26), ("E", 52), ("F", 78), ("G", 104), ("A", 130), ("B", 156), ("C2", 182), ("D2", 208), ("E2", 234)]
-    negras = [("C#", 17), ("D#", 43), ("F#", 95), ("G#", 121), ("A#", 147), ("C#2", 199), ("D#2", 225)]
+    blancas = [("C", 0), ("D", 22), ("E", 44), ("F", 66), ("G", 88), ("A", 110), ("B", 132)]
+    negras = [("C#", 14), ("D#", 36), ("F#", 80), ("G#", 102), ("A#", 124)]
 
-    svg = """<svg width="220" height="75" viewBox="0 0 270 90" xmlns="http://www.w3.org/2000/svg" style="border-radius: 8px; background: rgba(0,0,0,0.5); padding: 4px;">"""
+    svg = """<svg width="170" height="75" viewBox="0 0 160 85" xmlns="http://www.w3.org/2000/svg" style="border-radius: 8px; background: rgba(0,0,0,0.5); padding: 4px;">"""
     for nota, x in blancas:
-        nota_base = nota.replace("2", "")
-        color = "#3b82f6" if nota_base in notas_acorde else "#ffffff"
-        svg += f'<rect x="{x}" y="0" width="24" height="80" rx="3" fill="{color}" stroke="#0f172a" stroke-width="1.5"/>'
+        color = "#3b82f6" if nota in notas_acorde else "#ffffff"
+        svg += f'<rect x="{x}" y="0" width="20" height="75" rx="3" fill="{color}" stroke="#0f172a" stroke-width="1.5"/>'
     for nota, x in negras:
-        nota_base = nota.replace("2", "")
-        color = "#60a5fa" if nota_base in notas_acorde else "#0f172a"
-        svg += f'<rect x="{x}" y="0" width="15" height="50" rx="2" fill="{color}" stroke="#000000" stroke-width="1"/>'
+        color = "#60a5fa" if nota in notas_acorde else "#0f172a"
+        svg += f'<rect x="{x}" y="0" width="12" height="45" rx="2" fill="{color}" stroke="#000000" stroke-width="1"/>'
     svg += "</svg>"
     return svg
 
-def generar_svg_guitarra(posiciones, traste_inicio=1):
-    svg = f"""<svg width="130" height="150" viewBox="0 0 150 170" xmlns="http://www.w3.org/2000/svg" style="background: rgba(0,0,0,0.5); border-radius: 10px; padding: 5px;">
-    <text x="5" y="20" fill="#94a3b8" font-size="11" font-weight="bold">Traste {traste_inicio}</text>
-    """
-    for y in range(35, 160, 30):
-        svg += f'<line x1="25" y1="{y}" x2="125" y2="{y}" stroke="#64748b" stroke-width="2"/>'
-    for i, x in enumerate(range(25, 130, 20)):
-        grosor = 3 - (i * 0.3)
-        svg += f'<line x1="{x}" y1="35" x2="{x}" y2="155" stroke="#cbd5e1" stroke-width="{grosor}"/>'
+# MEJORA 2 & 4: DIBUJO DE BARRA Y DINÁMICA DE TRASTES (>4) EN GUITARRA
+def generar_svg_guitarra(posiciones, dedos=None, barra=None):
+    trastes_val = [p for p in posiciones if isinstance(p, int) and p > 0]
+    
+    if trastes_val:
+        min_traste = min(trastes_val)
+        max_traste = max(trastes_val)
+        if max_traste > 4:
+            traste_inicio = min_traste
+        else:
+            traste_inicio = 1
+    else:
+        traste_inicio = 1
+
+    num_trastes = 4
     x_cuerdas = list(range(25, 130, 20))
+
+    svg = f"""<svg width="140" height="175" viewBox="0 0 150 185" xmlns="http://www.w3.org/2000/svg" style="background: rgba(0,0,0,0.5); border-radius: 10px; padding: 5px;">
+    <text x="5" y="18" fill="#94a3b8" font-size="10" font-weight="bold">Traste {traste_inicio}</text>
+    """
+
+    for y in range(30, 30 + (num_trastes + 1) * 30, 30):
+        svg += f'<line x1="25" y1="{y}" x2="125" y2="{y}" stroke="#64748b" stroke-width="2"/>'
+    for i, x in enumerate(x_cuerdas):
+        grosor = 3 - (i * 0.3)
+        svg += f'<line x1="{x}" y1="30" x2="{x}" y2="{30 + num_trastes * 30}" stroke="#cbd5e1" stroke-width="{grosor}"/>'
+
+    # Dibujar la cejilla/barra
+    if barra:
+        traste_b = barra["traste"]
+        if traste_b >= traste_inicio and traste_b < traste_inicio + num_trastes:
+            rel_b = traste_b - traste_inicio + 1
+            cy_b = 30 + (rel_b * 30) - 15
+            x_ini = x_cuerdas[barra["desde"]]
+            x_fin = x_cuerdas[barra["hasta"]]
+            width_b = x_fin - x_ini + 12
+            svg += f'<rect x="{x_ini - 6}" y="{cy_b - 6}" width="{width_b}" height="12" rx="6" fill="#3b82f6" stroke="#ffffff" stroke-width="1"/>'
+
+    # Dibujar posiciones y número de dedo
     for i, pos in enumerate(posiciones):
         cx = x_cuerdas[i]
+        dedo_num = dedos[i] if dedos and i < len(dedos) else ""
         if str(pos).upper() == "X":
-            svg += f'<text x="{cx-4}" y="28" fill="#ef4444" font-size="12" font-weight="bold">✕</text>'
+            svg += f'<text x="{cx-4}" y="24" fill="#ef4444" font-size="12" font-weight="bold">✕</text>'
         elif pos == 0:
-            svg += f'<circle cx="{cx}" cy="24" r="4" fill="none" stroke="#22c55e" stroke-width="2"/>'
+            svg += f'<circle cx="{cx}" cy="20" r="4" fill="none" stroke="#22c55e" stroke-width="2"/>'
         elif isinstance(pos, int) and pos > 0:
             rel_traste = pos - traste_inicio + 1
-            cy = 35 + (rel_traste * 30) - 15
-            svg += f'<circle cx="{cx}" cy="{cy}" r="7.5" fill="#3b82f6" stroke="#ffffff" stroke-width="1"/>'
-            svg += f'<text x="{cx-3}" y="{cy+3.5}" fill="#ffffff" font-size="9" font-weight="bold">{pos}</text>'
+            if rel_traste <= num_trastes:
+                cy = 30 + (rel_traste * 30) - 15
+                svg += f'<circle cx="{cx}" cy="{cy}" r="7" fill="#3b82f6" stroke="#ffffff" stroke-width="1"/>'
+                if dedo_num:
+                    svg += f'<text x="{cx-3}" y="{cy+3.5}" fill="#ffffff" font-size="9" font-weight="bold">{dedo_num}</text>'
     svg += "</svg>"
     return svg
 
@@ -323,17 +358,30 @@ def detectar_tono_principal(texto_acordes):
     return "N/A"
 
 
+# MEJORA 1: RECONOCIMIENTO MEJORADO DE ACORDES CON SOSTENIDOS (#)
 def convertir_acordes_en_html_interactivo(texto_linea, instrumento):
     patron_acorde = r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
 
     def reemplazar(match):
         acorde_original = match.group(0)
-        base = re.sub(r'(m|maj|min|dim|aug|sus|add|[0-9]|\/).*', '', acorde_original) if acorde_original not in DICCIONARIO_ACORDES else acorde_original
+        base = acorde_original
+
+        if base not in DICCIONARIO_ACORDES:
+            # Buscar coincidencia exacta eliminando tensiones o bajo
+            sub_base = re.sub(r'(\/[A-G][#b]?|maj|min|dim|aug|sus|add|[0-9])', '', acorde_original)
+            if sub_base in DICCIONARIO_ACORDES:
+                base = sub_base
+            else:
+                base = re.sub(r'[^A-G#b]', '', acorde_original)
 
         if base in DICCIONARIO_ACORDES:
             datos = DICCIONARIO_ACORDES[base]
             if instrumento == "🎸 Guitarra":
-                svg_content = generar_svg_guitarra(datos["guitarra"], datos["traste"])
+                svg_content = generar_svg_guitarra(
+                    datos["guitarra"], 
+                    datos.get("dedos"), 
+                    datos.get("barra")
+                )
             else:
                 svg_content = generar_svg_teclado(datos["notas"])
 
