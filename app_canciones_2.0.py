@@ -103,7 +103,7 @@ st.markdown(
     .chord-item {
         position: relative;
         display: inline-block;
-        color: #ffffff;
+        color: #38bdf8;
         font-weight: bold;
         cursor: pointer;
         padding: 2px 4px;
@@ -112,8 +112,8 @@ st.markdown(
     }
 
     .chord-item:hover {
-        background: rgba(255, 255, 255, 0.15);
-        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.2);
+        color: #7dd3fc;
     }
 
     .chord-tooltip {
@@ -190,54 +190,110 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. DICCIONARIO CON CEJILLA (BARRA) Y DEDOS ACTUALIZADOS
+# 4. DICCIONARIO CON CEJILLA (BARRA) Y DEDOS COMPLETO CON SOSTENIDOS
 DICCIONARIO_ACORDES = {
-    "C": {"notas": ["C", "E", "G"], "guitarra": ["X", 3, 2, 0, 1, 0], "dedos": ["", "3", "2", "", "1", ""], "barra": None},
-    "C#": {"notas": ["C#", "F", "G#"], "guitarra": ["X", 4, 6, 6, 6, 4], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 4, "desde": 1, "hasta": 5}},
-    "Db": {"notas": ["C#", "F", "G#"], "guitarra": ["X", 4, 6, 6, 6, 4], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 4, "desde": 1, "hasta": 5}},
-    "C#m": {"notas": ["C#", "E", "G#"], "guitarra": ["X", 4, 6, 6, 5, 4], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 4, "desde": 1, "hasta": 5}},
-    "D": {"notas": ["D", "F#", "A"], "guitarra": ["X", "X", 0, 2, 3, 2], "dedos": ["", "", "", "1", "3", "2"], "barra": None},
-    "D#": {"notas": ["D#", "G", "A#"], "guitarra": ["X", 6, 8, 8, 8, 6], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 6, "desde": 1, "hasta": 5}},
-    "Eb": {"notas": ["D#", "G", "A#"], "guitarra": ["X", 6, 8, 8, 8, 6], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 6, "desde": 1, "hasta": 5}},
-    "Dm": {"notas": ["D", "F", "A"], "guitarra": ["X", "X", 0, 2, 3, 1], "dedos": ["", "", "", "2", "3", "1"], "barra": None},
-    "D#m": {"notas": ["D#", "F#", "A#"], "guitarra": ["X", 6, 8, 8, 7, 6], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 6, "desde": 1, "hasta": 5}},
-    "E": {"notas": ["E", "G#", "B"], "guitarra": [0, 2, 2, 1, 0, 0], "dedos": ["", "2", "3", "1", "", ""], "barra": None},
-    "Em": {"notas": ["E", "G", "B"], "guitarra": [0, 2, 2, 0, 0, 0], "dedos": ["", "2", "3", "", "", ""], "barra": None},
-    "F": {"notas": ["F", "A", "C"], "guitarra": [1, 3, 3, 2, 1, 1], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 1, "desde": 0, "hasta": 5}},
-    "F#": {"notas": ["F#", "A#", "C#"], "guitarra": [2, 4, 4, 3, 2, 2], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 2, "desde": 0, "hasta": 5}},
-    "Gb": {"notas": ["F#", "A#", "C#"], "guitarra": [2, 4, 4, 3, 2, 2], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 2, "desde": 0, "hasta": 5}},
-    "Fm": {"notas": ["F", "G#", "C"], "guitarra": [1, 3, 3, 1, 1, 1], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 1, "desde": 0, "hasta": 5}},
-    "F#m": {"notas": ["F#", "A", "C#"], "guitarra": [2, 4, 4, 2, 2, 2], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 2, "desde": 0, "hasta": 5}},
-    "G": {"notas": ["G", "B", "D"], "guitarra": [3, 2, 0, 0, 0, 3], "dedos": ["2", "1", "", "", "", "3"], "barra": None},
-    "G#": {"notas": ["G#", "C", "D#"], "guitarra": [4, 6, 6, 5, 4, 4], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 4, "desde": 0, "hasta": 5}},
-    "Ab": {"notas": ["G#", "C", "D#"], "guitarra": [4, 6, 6, 5, 4, 4], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 4, "desde": 0, "hasta": 5}},
-    "Gm": {"notas": ["G", "A#", "D"], "guitarra": [3, 5, 5, 3, 3, 3], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 3, "desde": 0, "hasta": 5}},
-    "G#m": {"notas": ["G#", "B", "D#"], "guitarra": [4, 6, 6, 4, 4, 4], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 4, "desde": 0, "hasta": 5}},
-    "A": {"notas": ["A", "C#", "E"], "guitarra": ["X", 0, 2, 2, 2, 0], "dedos": ["", "", "1", "2", "3", ""], "barra": None},
-    "A#": {"notas": ["A#", "D", "F"], "guitarra": ["X", 1, 3, 3, 3, 1], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 1, "desde": 1, "hasta": 5}},
-    "Bb": {"notas": ["A#", "D", "F"], "guitarra": ["X", 1, 3, 3, 3, 1], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 1, "desde": 1, "hasta": 5}},
-    "Am": {"notas": ["A", "C", "E"], "guitarra": ["X", 0, 2, 2, 1, 0], "dedos": ["", "", "2", "3", "1", ""], "barra": None},
-    "A#m": {"notas": ["A#", "C#", "F"], "guitarra": ["X", 1, 3, 3, 2, 1], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 1, "desde": 1, "hasta": 5}},
-    "B": {"notas": ["B", "D#", "F#"], "guitarra": ["X", 2, 4, 4, 4, 2], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 2, "desde": 1, "hasta": 5}},
-    "Bm": {"notas": ["B", "D", "F#"], "guitarra": ["X", 2, 4, 4, 3, 2], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 2, "desde": 1, "hasta": 5}},
+    # C / C# / Db
+    "C": {"raiz": "C", "tipo": "maj", "guitarra": ["X", 3, 2, 0, 1, 0], "dedos": ["", "3", "2", "", "1", ""], "barra": None},
+    "Cm": {"raiz": "C", "tipo": "m", "guitarra": ["X", 3, 5, 5, 4, 3], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 3, "desde": 1, "hasta": 5}},
+    "C#": {"raiz": "C#", "tipo": "maj", "guitarra": ["X", 4, 6, 6, 6, 4], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 4, "desde": 1, "hasta": 5}},
+    "Db": {"raiz": "C#", "tipo": "maj", "guitarra": ["X", 4, 6, 6, 6, 4], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 4, "desde": 1, "hasta": 5}},
+    "C#m": {"raiz": "C#", "tipo": "m", "guitarra": ["X", 4, 6, 6, 5, 4], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 4, "desde": 1, "hasta": 5}},
+    "Dbm": {"raiz": "C#", "tipo": "m", "guitarra": ["X", 4, 6, 6, 5, 4], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 4, "desde": 1, "hasta": 5}},
+
+    # D / D# / Eb
+    "D": {"raiz": "D", "tipo": "maj", "guitarra": ["X", "X", 0, 2, 3, 2], "dedos": ["", "", "", "1", "3", "2"], "barra": None},
+    "Dm": {"raiz": "D", "tipo": "m", "guitarra": ["X", "X", 0, 2, 3, 1], "dedos": ["", "", "", "2", "3", "1"], "barra": None},
+    "D#": {"raiz": "D#", "tipo": "maj", "guitarra": ["X", 6, 8, 8, 8, 6], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 6, "desde": 1, "hasta": 5}},
+    "Eb": {"raiz": "D#", "tipo": "maj", "guitarra": ["X", 6, 8, 8, 8, 6], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 6, "desde": 1, "hasta": 5}},
+    "D#m": {"raiz": "D#", "tipo": "m", "guitarra": ["X", 6, 8, 8, 7, 6], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 6, "desde": 1, "hasta": 5}},
+    "Ebm": {"raiz": "D#", "tipo": "m", "guitarra": ["X", 6, 8, 8, 7, 6], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 6, "desde": 1, "hasta": 5}},
+
+    # E
+    "E": {"raiz": "E", "tipo": "maj", "guitarra": [0, 2, 2, 1, 0, 0], "dedos": ["", "2", "3", "1", "", ""], "barra": None},
+    "Em": {"raiz": "E", "tipo": "m", "guitarra": [0, 2, 2, 0, 0, 0], "dedos": ["", "2", "3", "", "", ""], "barra": None},
+
+    # F / F# / Gb
+    "F": {"raiz": "F", "tipo": "maj", "guitarra": [1, 3, 3, 2, 1, 1], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 1, "desde": 0, "hasta": 5}},
+    "Fm": {"raiz": "F", "tipo": "m", "guitarra": [1, 3, 3, 1, 1, 1], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 1, "desde": 0, "hasta": 5}},
+    "F#": {"raiz": "F#", "tipo": "maj", "guitarra": [2, 4, 4, 3, 2, 2], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 2, "desde": 0, "hasta": 5}},
+    "Gb": {"raiz": "F#", "tipo": "maj", "guitarra": [2, 4, 4, 3, 2, 2], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 2, "desde": 0, "hasta": 5}},
+    "F#m": {"raiz": "F#", "tipo": "m", "guitarra": [2, 4, 4, 2, 2, 2], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 2, "desde": 0, "hasta": 5}},
+    "Gbm": {"raiz": "F#", "tipo": "m", "guitarra": [2, 4, 4, 2, 2, 2], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 2, "desde": 0, "hasta": 5}},
+
+    # G / G# / Ab
+    "G": {"raiz": "G", "tipo": "maj", "guitarra": [3, 2, 0, 0, 0, 3], "dedos": ["2", "1", "", "", "", "3"], "barra": None},
+    "Gm": {"raiz": "G", "tipo": "m", "guitarra": [3, 5, 5, 3, 3, 3], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 3, "desde": 0, "hasta": 5}},
+    "G#": {"raiz": "G#", "tipo": "maj", "guitarra": [4, 6, 6, 5, 4, 4], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 4, "desde": 0, "hasta": 5}},
+    "Ab": {"raiz": "G#", "tipo": "maj", "guitarra": [4, 6, 6, 5, 4, 4], "dedos": ["1", "3", "4", "2", "1", "1"], "barra": {"traste": 4, "desde": 0, "hasta": 5}},
+    "G#m": {"raiz": "G#", "tipo": "m", "guitarra": [4, 6, 6, 4, 4, 4], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 4, "desde": 0, "hasta": 5}},
+    "Abm": {"raiz": "G#", "tipo": "m", "guitarra": [4, 6, 6, 4, 4, 4], "dedos": ["1", "3", "4", "1", "1", "1"], "barra": {"traste": 4, "desde": 0, "hasta": 5}},
+
+    # A / A# / Bb
+    "A": {"raiz": "A", "tipo": "maj", "guitarra": ["X", 0, 2, 2, 2, 0], "dedos": ["", "", "1", "2", "3", ""], "barra": None},
+    "Am": {"raiz": "A", "tipo": "m", "guitarra": ["X", 0, 2, 2, 1, 0], "dedos": ["", "", "2", "3", "1", ""], "barra": None},
+    "A#": {"raiz": "A#", "tipo": "maj", "guitarra": ["X", 1, 3, 3, 3, 1], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 1, "desde": 1, "hasta": 5}},
+    "Bb": {"raiz": "A#", "tipo": "maj", "guitarra": ["X", 1, 3, 3, 3, 1], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 1, "desde": 1, "hasta": 5}},
+    "A#m": {"raiz": "A#", "tipo": "m", "guitarra": ["X", 1, 3, 3, 2, 1], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 1, "desde": 1, "hasta": 5}},
+    "Bbm": {"raiz": "A#", "tipo": "m", "guitarra": ["X", 1, 3, 3, 2, 1], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 1, "desde": 1, "hasta": 5}},
+
+    # B
+    "B": {"raiz": "B", "tipo": "maj", "guitarra": ["X", 2, 4, 4, 4, 2], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 2, "desde": 1, "hasta": 5}},
+    "Bm": {"raiz": "B", "tipo": "m", "guitarra": ["X", 2, 4, 4, 3, 2], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 2, "desde": 1, "hasta": 5}},
 }
 
-# MEJORA 3: VISTA DE TECLADO LIMITADA A 1 OCTAVA (TRÍADA)
-def generar_svg_teclado(notas_acorde):
-    blancas = [("C", 0), ("D", 22), ("E", 44), ("F", 66), ("G", 88), ("A", 110), ("B", 132)]
-    negras = [("C#", 14), ("D#", 36), ("F#", 80), ("G#", 102), ("A#", 124)]
+SEMITONOS_NOTAS = {
+    "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3,
+    "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8,
+    "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11
+}
 
-    svg = """<svg width="170" height="75" viewBox="0 0 160 85" xmlns="http://www.w3.org/2000/svg" style="border-radius: 8px; background: rgba(0,0,0,0.5); padding: 4px;">"""
-    for nota, x in blancas:
-        color = "#3b82f6" if nota in notas_acorde else "#ffffff"
-        svg += f'<rect x="{x}" y="0" width="20" height="75" rx="3" fill="{color}" stroke="#0f172a" stroke-width="1.5"/>'
-    for nota, x in negras:
-        color = "#60a5fa" if nota in notas_acorde else "#0f172a"
-        svg += f'<rect x="{x}" y="0" width="12" height="45" rx="2" fill="{color}" stroke="#000000" stroke-width="1"/>'
+# MEJORA: VISTA DE TECLADO ESTRICTAMENTE EN SU INVERSIÓN NATURAL (ESTADO FUNDAMENTAL)
+def generar_svg_teclado(datos_acorde):
+    raiz = datos_acorde.get("raiz", "C")
+    tipo = datos_acorde.get("tipo", "maj")
+
+    # Calcular los semitonos absolutos de la tríada fundamental (Raíz - 3ª - 5ª)
+    semitonos_raiz = SEMITONOS_NOTAS.get(raiz, 0)
+    tercera_rel = 4 if tipo == "maj" else 3
+    quinta_rel = 7
+
+    pos_raiz = semitonos_raiz
+    pos_tercera = pos_raiz + tercera_rel
+    pos_quinta = pos_raiz + quinta_rel
+
+    posiciones_activas = {pos_raiz, pos_tercera, pos_quinta}
+
+    # Definir 2 octavas de teclas para permitir dibujar el estado fundamental a partir de cualquier raíz
+    blancas = [
+        ("C", 0), ("D", 20), ("E", 40), ("F", 60), ("G", 80), ("A", 100), ("B", 120),
+        ("C", 140), ("D", 160), ("E", 180), ("F", 200), ("G", 220), ("A", 240), ("B", 260)
+    ]
+    negras = [
+        ("C#", 12), ("D#", 32), ("F#", 72), ("G#", 92), ("A#", 112),
+        ("C#", 152), ("D#", 172), ("F#", 212), ("G#", 232), ("A#", 252)
+    ]
+
+    mapa_semitonos_blancas = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23]
+    mapa_semitonos_negras = [1, 3, 6, 8, 10, 13, 15, 18, 20, 22]
+
+    svg = """<svg width="270" height="75" viewBox="0 0 280 85" xmlns="http://www.w3.org/2000/svg" style="border-radius: 8px; background: rgba(0,0,0,0.6); padding: 4px;">"""
+    
+    # Renderizar teclas blancas
+    for idx, (nota, x) in enumerate(blancas):
+        st_val = mapa_semitonos_blancas[idx]
+        color = "#38bdf8" if st_val in posiciones_activas else "#ffffff"
+        svg += f'<rect x="{x}" y="0" width="18" height="75" rx="3" fill="{color}" stroke="#0f172a" stroke-width="1.5"/>'
+
+    # Renderizar teclas negras
+    for idx, (nota, x) in enumerate(negras):
+        st_val = mapa_semitonos_negras[idx]
+        color = "#0284c7" if st_val in posiciones_activas else "#0f172a"
+        svg += f'<rect x="{x}" y="0" width="11" height="45" rx="2" fill="{color}" stroke="#000000" stroke-width="1"/>'
+
     svg += "</svg>"
     return svg
 
-# MEJORA 2 & 4: DIBUJO DE BARRA Y DINÁMICA DE TRASTES (>4) EN GUITARRA
+# DIBUJO DE BARRA Y DINÁMICA DE TRASTES (>4) EN GUITARRA
 def generar_svg_guitarra(posiciones, dedos=None, barra=None):
     trastes_val = [p for p in posiciones if isinstance(p, int) and p > 0]
     
@@ -358,8 +414,9 @@ def detectar_tono_principal(texto_acordes):
     return "N/A"
 
 
-# MEJORA 1: RECONOCIMIENTO MEJORADO DE ACORDES CON SOSTENIDOS (#)
+# RECONOCIMIENTO MEJORADO Y PRECISO DE ACORDES CON SOSTENIDOS (#)
 def convertir_acordes_en_html_interactivo(texto_linea, instrumento):
+    # Regex robusta para capturar tonos con sostenidos (F#, C#, G#) e incl. bajos (/F#)
     patron_acorde = r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
 
     def reemplazar(match):
@@ -367,12 +424,16 @@ def convertir_acordes_en_html_interactivo(texto_linea, instrumento):
         base = acorde_original
 
         if base not in DICCIONARIO_ACORDES:
-            # Buscar coincidencia exacta eliminando tensiones o bajo
+            # Eliminar bajos como /F# o tensiones como 7, maj7 para mapear al diccionario
             sub_base = re.sub(r'(\/[A-G][#b]?|maj|min|dim|aug|sus|add|[0-9])', '', acorde_original)
             if sub_base in DICCIONARIO_ACORDES:
                 base = sub_base
             else:
-                base = re.sub(r'[^A-G#b]', '', acorde_original)
+                m_raiz = re.match(r'^([A-G][#b]?m?)', acorde_original)
+                if m_raiz and m_raiz.group(1) in DICCIONARIO_ACORDES:
+                    base = m_raiz.group(1)
+                else:
+                    base = re.sub(r'[^A-G#bm]', '', acorde_original)
 
         if base in DICCIONARIO_ACORDES:
             datos = DICCIONARIO_ACORDES[base]
@@ -383,7 +444,7 @@ def convertir_acordes_en_html_interactivo(texto_linea, instrumento):
                     datos.get("barra")
                 )
             else:
-                svg_content = generar_svg_teclado(datos["notas"])
+                svg_content = generar_svg_teclado(datos)
 
             return f'''<span class="chord-item" tabindex="0">{acorde_original}<span class="chord-tooltip">{svg_content}</span></span>'''
         return acorde_original
