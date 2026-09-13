@@ -99,21 +99,22 @@ st.markdown(
         border: 1px solid rgba(255, 255, 255, 0.3);
     }
 
-    /* ESTILOS PARA TOOLTIPS INTERACTIVOS DE ACORDES */
+    /* ESTILOS CORREGIDOS: LETRAS EN BLANCO Y SIN AZUL FORZADO */
     .chord-item {
         position: relative;
         display: inline-block;
-        color: #38bdf8;
+        color: #ffffff !important;
         font-weight: bold;
         cursor: pointer;
-        padding: 2px 4px;
-        border-radius: 4px;
+        padding: 2px 6px;
+        border-radius: 6px;
         transition: background 0.2s, color 0.2s;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.5);
     }
 
     .chord-item:hover {
-        background: rgba(56, 189, 248, 0.2);
-        color: #7dd3fc;
+        background: rgba(255, 255, 255, 0.2) !important;
+        color: #ffffff !important;
     }
 
     .chord-tooltip {
@@ -190,7 +191,7 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. DICCIONARIO CON CEJILLA (BARRA) Y DEDOS COMPLETO CON SOSTENIDOS
+# 4. DICCIONARIO DE ACORDES
 DICCIONARIO_ACORDES = {
     # C / C# / Db
     "C": {"raiz": "C", "tipo": "maj", "guitarra": ["X", 3, 2, 0, 1, 0], "dedos": ["", "3", "2", "", "1", ""], "barra": None},
@@ -247,12 +248,11 @@ SEMITONOS_NOTAS = {
     "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11
 }
 
-# MEJORA: VISTA DE TECLADO ESTRICTAMENTE EN SU INVERSIÓN NATURAL (ESTADO FUNDAMENTAL)
+
 def generar_svg_teclado(datos_acorde):
     raiz = datos_acorde.get("raiz", "C")
     tipo = datos_acorde.get("tipo", "maj")
 
-    # Calcular los semitonos absolutos de la tríada fundamental (Raíz - 3ª - 5ª)
     semitonos_raiz = SEMITONOS_NOTAS.get(raiz, 0)
     tercera_rel = 4 if tipo == "maj" else 3
     quinta_rel = 7
@@ -263,7 +263,6 @@ def generar_svg_teclado(datos_acorde):
 
     posiciones_activas = {pos_raiz, pos_tercera, pos_quinta}
 
-    # Definir 2 octavas de teclas para permitir dibujar el estado fundamental a partir de cualquier raíz
     blancas = [
         ("C", 0), ("D", 20), ("E", 40), ("F", 60), ("G", 80), ("A", 100), ("B", 120),
         ("C", 140), ("D", 160), ("E", 180), ("F", 200), ("G", 220), ("A", 240), ("B", 260)
@@ -278,13 +277,11 @@ def generar_svg_teclado(datos_acorde):
 
     svg = """<svg width="270" height="75" viewBox="0 0 280 85" xmlns="http://www.w3.org/2000/svg" style="border-radius: 8px; background: rgba(0,0,0,0.6); padding: 4px;">"""
     
-    # Renderizar teclas blancas
     for idx, (nota, x) in enumerate(blancas):
         st_val = mapa_semitonos_blancas[idx]
         color = "#38bdf8" if st_val in posiciones_activas else "#ffffff"
         svg += f'<rect x="{x}" y="0" width="18" height="75" rx="3" fill="{color}" stroke="#0f172a" stroke-width="1.5"/>'
 
-    # Renderizar teclas negras
     for idx, (nota, x) in enumerate(negras):
         st_val = mapa_semitonos_negras[idx]
         color = "#0284c7" if st_val in posiciones_activas else "#0f172a"
@@ -293,7 +290,7 @@ def generar_svg_teclado(datos_acorde):
     svg += "</svg>"
     return svg
 
-# DIBUJO DE BARRA Y DINÁMICA DE TRASTES (>4) EN GUITARRA
+
 def generar_svg_guitarra(posiciones, dedos=None, barra=None):
     trastes_val = [p for p in posiciones if isinstance(p, int) and p > 0]
     
@@ -320,7 +317,6 @@ def generar_svg_guitarra(posiciones, dedos=None, barra=None):
         grosor = 3 - (i * 0.3)
         svg += f'<line x1="{x}" y1="30" x2="{x}" y2="{30 + num_trastes * 30}" stroke="#cbd5e1" stroke-width="{grosor}"/>'
 
-    # Dibujar la cejilla/barra
     if barra:
         traste_b = barra["traste"]
         if traste_b >= traste_inicio and traste_b < traste_inicio + num_trastes:
@@ -331,7 +327,6 @@ def generar_svg_guitarra(posiciones, dedos=None, barra=None):
             width_b = x_fin - x_ini + 12
             svg += f'<rect x="{x_ini - 6}" y="{cy_b - 6}" width="{width_b}" height="12" rx="6" fill="#3b82f6" stroke="#ffffff" stroke-width="1"/>'
 
-    # Dibujar posiciones y número de dedo
     for i, pos in enumerate(posiciones):
         cx = x_cuerdas[i]
         dedo_num = dedos[i] if dedos and i < len(dedos) else ""
@@ -369,6 +364,7 @@ def transponer_acorde(acorde, semitonos):
             return NOTAS_CROMATICAS[idx]
         return nota
 
+    # Regex para capturar notas base con o sin sostenido (#) / bemol (b)
     patron = r"([A-G][#b]?)"
     return re.sub(patron, transponer_nota, acorde)
 
@@ -405,26 +401,23 @@ def transponer_texto_acordes(texto, semitonos):
 
 
 def detectar_tono_principal(texto_acordes):
-    patron_acorde = (
-        r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
-    )
+    patron_acorde = r"(?:[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?)"
     acordes = re.findall(patron_acorde, texto_acordes)
     if acordes:
         return acordes[0]
     return "N/A"
 
 
-# RECONOCIMIENTO MEJORADO Y PRECISO DE ACORDES CON SOSTENIDOS (#)
+# CORRECCIÓN DEFINITIVA DE PATRÓN PARA RECONOCER SOSTENIDOS SIN PERDER EL SÍMBOLO '#'
 def convertir_acordes_en_html_interactivo(texto_linea, instrumento):
-    # Regex robusta para capturar tonos con sostenidos (F#, C#, G#) e incl. bajos (/F#)
-    patron_acorde = r"\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?\b"
+    # Regex ajustada para capturar notas completas con # o b
+    patron_acorde = r"(?<![A-Za-z0-9#])([A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?)(?![A-Za-z0-9#])"
 
     def reemplazar(match):
-        acorde_original = match.group(0)
+        acorde_original = match.group(1)
         base = acorde_original
 
         if base not in DICCIONARIO_ACORDES:
-            # Eliminar bajos como /F# o tensiones como 7, maj7 para mapear al diccionario
             sub_base = re.sub(r'(\/[A-G][#b]?|maj|min|dim|aug|sus|add|[0-9])', '', acorde_original)
             if sub_base in DICCIONARIO_ACORDES:
                 base = sub_base
@@ -433,7 +426,9 @@ def convertir_acordes_en_html_interactivo(texto_linea, instrumento):
                 if m_raiz and m_raiz.group(1) in DICCIONARIO_ACORDES:
                     base = m_raiz.group(1)
                 else:
-                    base = re.sub(r'[^A-G#bm]', '', acorde_original)
+                    m_base_simple = re.match(r'^([A-G][#b]?)', acorde_original)
+                    if m_base_simple and m_base_simple.group(1) in DICCIONARIO_ACORDES:
+                        base = m_base_simple.group(1)
 
         if base in DICCIONARIO_ACORDES:
             datos = DICCIONARIO_ACORDES[base]
@@ -499,7 +494,7 @@ def renderizar_bloques_color(texto_acordes, instrumento):
                 linea_html = convertir_acordes_en_html_interactivo(linea, instrumento)
                 st.markdown(
                     f"<p style='font-family: monospace; font-size:"
-                    f" 16px; color: #e5e7eb;'>{linea_html}</p>",
+                    f" 16px; color: #ffffff;'>{linea_html}</p>",
                     unsafe_allow_html=True,
                 )
 
