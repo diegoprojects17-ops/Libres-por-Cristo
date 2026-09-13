@@ -364,7 +364,6 @@ def transponer_acorde(acorde, semitonos):
             return NOTAS_CROMATICAS[idx]
         return nota
 
-    # Regex para capturar notas base con o sin sostenido (#) / bemol (b)
     patron = r"([A-G][#b]?)"
     return re.sub(patron, transponer_nota, acorde)
 
@@ -400,17 +399,17 @@ def transponer_texto_acordes(texto, semitonos):
     return "\n".join(lineas_transp)
 
 
+# DETECCIÓN DE TONALIDAD CORREGIDA PARA IGNORAR ESTRUCTURAS COMO "Estrofa", "Intro", ETC.
 def detectar_tono_principal(texto_acordes):
-    patron_acorde = r"(?:[A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?)"
-    acordes = re.findall(patron_acorde, texto_acordes)
+    texto_limpio = re.sub(r'(?i)\b(Estrofa|Intro|Coro|Precoro|Puente|Verso)\b', '', texto_acordes)
+    patron_acorde = r"\b([A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?)\b"
+    acordes = re.findall(patron_acorde, texto_limpio)
     if acordes:
         return acordes[0]
     return "N/A"
 
 
-# CORRECCIÓN DEFINITIVA DE PATRÓN PARA RECONOCER SOSTENIDOS SIN PERDER EL SÍMBOLO '#'
 def convertir_acordes_en_html_interactivo(texto_linea, instrumento):
-    # Regex ajustada para capturar notas completas con # o b
     patron_acorde = r"(?<![A-Za-z0-9#])([A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?)(?![A-Za-z0-9#])"
 
     def reemplazar(match):
@@ -517,7 +516,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BARRA LATERAL (PANEL DESLIZANTE CON SELECTOR DE INSTRUMENTO) ---
+# --- BARRA LATERAL ---
 with st.sidebar:
     st.markdown("### 🎼 Instrumento")
     instrumento_seleccionado = st.radio(
@@ -990,7 +989,6 @@ with pestana_agregar:
                     except Exception as e:
                         st.error(f"Error en OCR: {e}")
 
-    # Bloque de Confirmación y Guardado
     if "temp_titulo" in st.session_state:
         st.subheader("🔍 Confirmación Final:")
         titulo_f = st.text_input(
