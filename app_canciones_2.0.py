@@ -178,13 +178,20 @@ def cargar_datos_nube():
 
 
 def guardar_datos_nube(datos):
+    # Protección extra para evitar sobreescribir con estructura vacía
+    if not datos or "canciones" not in datos:
+        st.error("Protección activada: Estructura de datos no válida. Cancelando guardado.")
+        return False
     try:
         respuesta = requests.put(URL_JSONBIN, json=datos, headers=HEADERS)
         if respuesta.status_code == 200:
             st.cache_data.clear()
             return True
+        elif respuesta.status_code == 429:
+            st.error("Demasiadas peticiones simultáneas a la nube. Espera un momento y vuelve a intentarlo.")
+            return False
         else:
-            st.error("No se pudieron guardar los datos en la nube.")
+            st.error(f"No se pudieron guardar los datos en la nube (Código {respuesta.status_code}).")
             return False
     except Exception as e:
         st.error(f"Error al guardar: {e}")
@@ -399,13 +406,31 @@ def transponer_texto_acordes(texto, semitonos):
     return "\n".join(lineas_transp)
 
 
-# DETECCIÓN DE TONALIDAD CORREGIDA PARA IGNORAR ESTRUCTURAS COMO "Estrofa", "Intro", ETC.
+# DETECCIÓN DE TONALIDAD CORREGIDA
 def detectar_tono_principal(texto_acordes):
-    texto_limpio = re.sub(r'(?i)\b(Estrofa|Intro|Coro|Precoro|Puente|Verso)\b', '', texto_acordes)
-    patron_acorde = r"\b([A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?)\b"
-    acordes = re.findall(patron_acorde, texto_limpio)
-    if acordes:
-        return acordes[0]
+    if not texto_acordes:
+        return "N/A"
+    
+    patron_acorde_estricto = r"(?<![A-Za-z0-9#])([A-G][#b]?(?:m|maj|min|dim|aug|sus|add)?[0-9]?(?:\/[A-G][#b]?)?)(?![A-Za-z0-9#])"
+    acordes_encontrados = []
+    lineas = texto_acordes.split("\n")
+    
+    for linea in lineas:
+        if "//" in linea:
+            partes = linea.split("//")
+            if len(partes) > 1:
+                acordes_bloque = partes[1]
+                encontrados = re.findall(patron_acorde_estricto, acordes_bloque)
+                acordes_encontrados.extend(encontrados)
+        else:
+            palabras = linea.split()
+            if palabras and sum(1 for p in palabras if re.match(r"^[A-G][#b]?", p)) >= len(palabras) * 0.4:
+                encontrados = re.findall(patron_acorde_estricto, linea)
+                acordes_encontrados.extend(encontrados)
+
+    if acordes_encontrados:
+        return acordes_encontrados[0]
+        
     return "N/A"
 
 
@@ -505,6 +530,10 @@ calendario = db.get("calendario", {})
 
 if "lista_servicio" not in st.session_state:
     st.session_state.lista_servicio = []
+
+# Inicialización de estado para deshabilitar botón mientras guarda
+if "guardando_cancion" not in st.session_state:
+    st.session_state.guardando_cancion = False
 
 # Encabezado estilo Liquid Glass
 st.markdown(
@@ -855,25 +884,39 @@ with pestana_agregar:
             placeholder="Intro // G D //\nEstrofa // G C D //",
         )
 
-        if st.button("💾 Guardar Canción"):
+        texto_btn_guardar = "⌛ Guardando en la nube..." if st.session_state.guardando_cancion else "💾 Guardar Canción"
+        
+        if st.button(texto_btn_guardar, disabled=st.session_state.guardando_cancion):
             if nuevo_titulo and nuevos_acordes:
-                clave_nueva = (
-                    nuevo_titulo.lower()
-                    .strip()
-                    .replace("á", "a")
-                    .replace("é", "e")
-                    .replace("í", "i")
-                    .replace("ó", "o")
-                    .replace("ú", "u")
-                )
-                cancionero[clave_nueva] = {
-                    "titulo_real": nuevo_titulo.strip(),
-                    "acordes": nuevos_acordes.strip(),
-                }
-                db["canciones"] = cancionero
-                if guardar_datos_nube(db):
-                    st.success("¡Canción guardada exitosamente!")
-                    st.rerun()
+                st.session_state.guardando_cancion = True
+                st.rerun()
+
+        if st.session_state.guardando_cancion and nuevo_titulo and nuevos_acordes:
+            clave_nueva = (
+                nuevo_titulo.lower()
+                .strip()
+                .replace("á", "a")
+                .replace("é", "e")
+                .replace("í", "i")
+                .replace("ó", "o")
+                .replace("ú", "u")
+            )
+            cancionero[clave_nueva] = {
+                "titulo_real": nuevo_titulo.strip(),
+                "acordes": nuevos_acordes.strip(),
+            }
+            db["canciones"] = cancionero
+            
+            with st.spinner("Guardando canción en JSONBin..."):
+                exito = guardar_datos_nube(db)
+            
+            st.session_state.guardando_cancion = False
+            
+            if exito:
+                st.success("¡Canción guardada exitosamente!")
+                st.rerun()
+            else:
+                st.error("Error al guardar. Intenta de nuevo.")
 
     elif metodo == "Pegar Link Directo de Cifra Club 🎸":
         url_directa = st.text_input(
@@ -1000,7 +1043,13 @@ with pestana_agregar:
             height=200,
         )
 
-        if st.button("💾 Guardar Definitivamente"):
+        texto_btn_definitivo = "⌛ Guardando en la nube..." if st.session_state.guardando_cancion else "💾 Guardar Definitivamente"
+
+        if st.button(texto_btn_definitivo, disabled=st.session_state.guardando_cancion, key="btn_definitivo"):
+            st.session_state.guardando_cancion = True
+            st.rerun()
+
+        if st.session_state.guardando_cancion and "temp_titulo" in st.session_state:
             clave_nueva = (
                 titulo_f.lower()
                 .strip()
@@ -1015,8 +1064,16 @@ with pestana_agregar:
                 "acordes": acordes_f.strip(),
             }
             db["canciones"] = cancionero
-            if guardar_datos_nube(db):
+            
+            with st.spinner("Guardando en la nube..."):
+                exito = guardar_datos_nube(db)
+
+            st.session_state.guardando_cancion = False
+
+            if exito:
                 st.success("¡Canción guardada exitosamente!")
                 del st.session_state["temp_titulo"]
                 del st.session_state["temp_acordes"]
                 st.rerun()
+            else:
+                st.error("Error al guardar en JSONBin.")
