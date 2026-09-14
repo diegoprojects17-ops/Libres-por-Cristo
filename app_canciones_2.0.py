@@ -96,6 +96,18 @@ st.markdown(
         box-shadow: 0 6px 20px rgba(255, 255, 255, 0.1);
     }
 
+    /* Estilo de la lista de sugerencias tipo autocompletado */
+    .suggestion-item {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 10px 15px;
+        border-radius: 10px;
+        margin-bottom: 6px;
+        color: #ffffff;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
     /* Badges visuales */
     .badge-tono { 
         background: rgba(255, 255, 255, 0.12); 
@@ -561,6 +573,9 @@ if "lista_servicio" not in st.session_state:
 if "guardando_cancion" not in st.session_state:
     st.session_state.guardando_cancion = False
 
+if "cancion_activa_seleccionada" not in st.session_state:
+    st.session_state.cancion_activa_seleccionada = None
+
 # Encabezado estilo Liquid Glass
 st.markdown(
     """
@@ -677,7 +692,7 @@ pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
     "➕ Agregar Canción",
 ])
 
-# --- PESTAÑA 1: BUSCADOR CON ENTRADA DE TEXTO DIRECTA PARA TECLADO MÓVIL ---
+# --- PESTAÑA 1: BUSCADOR ESTILO GOOGLE (SUGERENCIAS DIRECTAS AL ESCRIBIR) ---
 with pestana_buscar:
     st.subheader("🔍 Buscador de Canciones")
 
@@ -688,10 +703,11 @@ with pestana_buscar:
     if titulos_reales:
         busqueda_texto = st.text_input(
             "Escribe el nombre de la canción:",
-            placeholder="Ej: Cuerdas de Amor...",
+            placeholder="Escribe aquí para buscar...",
             key="input_busqueda_movil"
         )
 
+        # Filtrado instantáneo a medida que escribe
         if busqueda_texto.strip():
             coincidencias = [
                 t for t in titulos_reales 
@@ -700,25 +716,25 @@ with pestana_buscar:
         else:
             coincidencias = titulos_reales
 
+        # Despliegue directo de sugerencias al estilo Google
         if coincidencias:
-            cancion_seleccionada = st.selectbox(
-                "Selecciona de las coincidencias:",
-                options=coincidencias,
-                index=0,
-                key="select_cancion_filtrada",
-            )
+            st.markdown("<p style='font-size:12px; color:#94a3b8; margin-bottom:5px;'>Sugerencias encontradas (toca una para ver acordes):</p>", unsafe_allow_html=True)
+            for idx, tit_coincidencia in enumerate(coincidencias[:8]):  # Muestra hasta 8 sugerencias rápidas
+                if st.button(f"🎵 {tit_coincidencia}", key=f"sug_{idx}"):
+                    st.session_state.cancion_activa_seleccionada = tit_coincidencia
         else:
-            st.warning("No se encontraron canciones con ese nombre.")
-            cancion_seleccionada = None
+            st.warning("No hay canciones que coincidan con la búsqueda.")
 
         st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
-        if cancion_seleccionada:
+        # Mostrar canción seleccionada
+        cancion_a_mostrar = st.session_state.cancion_activa_seleccionada
+        if cancion_a_mostrar and cancion_a_mostrar in titulos_reales:
             clave_sel = next(
                 (
                     k
                     for k, v in cancionero.items()
-                    if v["titulo_real"] == cancion_seleccionada
+                    if v["titulo_real"] == cancion_a_mostrar
                 ),
                 None,
             )
@@ -760,6 +776,7 @@ with pestana_buscar:
                         if st.button("🗑️ Eliminar Canción"):
                             del cancionero[clave_sel]
                             db["canciones"] = cancionero
+                            st.session_state.cancion_activa_seleccionada = None
                             if guardar_datos_nube(db):
                                 st.success("Canción eliminada.")
                                 st.rerun()
