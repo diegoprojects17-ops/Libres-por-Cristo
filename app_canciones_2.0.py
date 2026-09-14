@@ -660,81 +660,64 @@ with pestana_buscar:
     )
 
     if titulos_reales:
-        texto_busqueda = st.text_input(
-            "🔍 Escribe el nombre de la canción:",
-            placeholder="Ej: Cuan Grande es Él",
-            key="input_busqueda_movil"
+        cancion_seleccionada = st.selectbox(
+            "Escribe el nombre de la canción:",
+            options=titulos_reales,
+            index=0,
+            key="select_cancion_unica",
         )
 
-        if texto_busqueda:
-            opciones_filtradas = [
-                t for t in titulos_reales if texto_busqueda.lower() in t.lower()
-            ]
-        else:
-            opciones_filtradas = titulos_reales
+        st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
-        if opciones_filtradas:
-            cancion_seleccionada = st.selectbox(
-                "Selecciona la canción:",
-                options=opciones_filtradas,
-                key="select_cancion_filtrada"
+        clave_sel = next(
+            (
+                k
+                for k, v in cancionero.items()
+                if v["titulo_real"] == cancion_seleccionada
+            ),
+            None,
+        )
+
+        if clave_sel:
+            cancion = cancionero[clave_sel]
+
+            st.markdown(f"## 🎵 {cancion['titulo_real']}")
+
+            semitonos_v = st.slider(
+                "Transponer tono en vivo (Semitonos):", -6, 6, 0
             )
-        else:
-            st.warning("No se encontraron canciones con ese nombre.")
-            cancion_seleccionada = None
-
-        if cancion_seleccionada:
-            st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
-
-            clave_sel = next(
-                (
-                    k
-                    for k, v in cancionero.items()
-                    if v["titulo_real"] == cancion_seleccionada
-                ),
-                None,
+            acordes_mostrados = transponer_texto_acordes(
+                cancion["acordes"], semitonos_v
             )
 
-            if clave_sel:
-                cancion = cancionero[clave_sel]
+            renderizar_bloques_color(acordes_mostrados, instrumento_seleccionado)
 
-                st.markdown(f"## 🎵 {cancion['titulo_real']}")
-
-                semitonos_v = st.slider(
-                    "Transponer tono en vivo (Semitonos):", -6, 6, 0
+            with st.expander("🛠️ Editar datos o acordes"):
+                edit_titulo = st.text_input(
+                    "Título:", value=cancion["titulo_real"]
                 )
-                acordes_mostrados = transponer_texto_acordes(
-                    cancion["acordes"], semitonos_v
+                edit_acordes = st.text_area(
+                    "Acordes:", value=cancion["acordes"], height=150
                 )
 
-                renderizar_bloques_color(acordes_mostrados, instrumento_seleccionado)
-
-                with st.expander("🛠️ Editar datos o acordes"):
-                    edit_titulo = st.text_input(
-                        "Título:", value=cancion["titulo_real"]
-                    )
-                    edit_acordes = st.text_area(
-                        "Acordes:", value=cancion["acordes"], height=150
-                    )
-
-                    col_s, col_d = st.columns(2)
-                    with col_s:
-                        if st.button("💾 Guardar Cambios"):
-                            cancionero[clave_sel]["titulo_real"] = (
-                                edit_titulo.strip()
-                            )
-                            cancionero[clave_sel]["acordes"] = edit_acordes.strip()
-                            db["canciones"] = cancionero
-                            if guardar_datos_nube(db):
-                                st.success("¡Canción actualizada!")
-                                st.rerun()
-                    with col_d:
-                        if st.button("🗑️ Eliminar Canción"):
-                            del cancionero[clave_sel]
-                            db["canciones"] = cancionero
-                            if guardar_datos_nube(db):
-                                st.success("Canción eliminada.")
-                                st.rerun()
+                col_s, col_d = st.columns(2)
+                with col_s:
+                    if st.button("💾 Guardar Cambios"):
+                        cancionero[clave_sel]["titulo_real"] = (
+                            edit_titulo.strip()
+                        )
+                        cancionero[clave_sel]["acordes"] = edit_acordes.strip()
+                        db["canciones"] = cancionero
+                        if guardar_datos_nube(db):
+                            st.success("¡Canción actualizada!")
+                            st.rerun()
+                with col_d:
+                    if st.button("🗑️ Eliminar Canción"):
+                        del cancionero[clave_sel]
+                        db["canciones"] = cancionero
+                        if guardar_datos_nube(db):
+                            st.success("Canción eliminada.")
+                            st.rerun()
     else:
         st.info("No hay canciones disponibles en el cancionero.")
 
