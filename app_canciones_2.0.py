@@ -13,12 +13,12 @@ st.set_page_config(
     page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
 )
 
-# Solución para habilitar el teclado táctil en teléfonos móviles para selectbox y multiselect
+# Solución JavaScript para habilitar el enfoque en campos móviles
 components.html(
     """
     <script>
     function enableMobileKeyboard() {
-        const inputs = parent.document.querySelectorAll('div[data-baseweb="select"] input');
+        const inputs = parent.document.querySelectorAll('div[data-baseweb="select"] input, input[type="text"]');
         inputs.forEach(input => {
             input.removeAttribute('readonly');
             input.removeAttribute('inputmode');
@@ -26,7 +26,6 @@ components.html(
         });
     }
     
-    // Ejecución inicial y observador de cambios en el DOM
     enableMobileKeyboard();
     const observer = new MutationObserver(enableMobileKeyboard);
     observer.observe(parent.document.body, { childList: true, subtree: true });
@@ -47,8 +46,8 @@ st.markdown(
         color: #f3f4f6;
     }
 
-    /* Corrección táctil para inputs de desplegables en móviles */
-    div[data-baseweb="select"] input {
+    /* Corrección táctil para inputs en móviles */
+    div[data-baseweb="select"] input, input[type="text"] {
         -webkit-user-select: text !important;
         user-select: text !important;
     }
@@ -129,7 +128,7 @@ st.markdown(
         border: 1px solid rgba(255, 255, 255, 0.3);
     }
 
-    /* ESTILOS CORREGIDOS: LETRAS EN BLANCO Y SIN AZUL FORZADO */
+    /* ESTILOS: LETRAS EN BLANCO */
     .chord-item {
         position: relative;
         display: inline-block;
@@ -208,7 +207,6 @@ def cargar_datos_nube():
 
 
 def guardar_datos_nube(datos):
-    # Protección extra para evitar sobreescribir con estructura vacía
     if not datos or "canciones" not in datos:
         st.error("Protección activada: Estructura de datos no válida. Cancelando guardado.")
         return False
@@ -436,7 +434,6 @@ def transponer_texto_acordes(texto, semitonos):
     return "\n".join(lineas_transp)
 
 
-# DETECCIÓN DE TONALIDAD CORREGIDA
 def detectar_tono_principal(texto_acordes):
     if not texto_acordes:
         return "N/A"
@@ -561,7 +558,6 @@ calendario = db.get("calendario", {})
 if "lista_servicio" not in st.session_state:
     st.session_state.lista_servicio = []
 
-# Inicialización de estado para deshabilitar botón mientras guarda
 if "guardando_cancion" not in st.session_state:
     st.session_state.guardando_cancion = False
 
@@ -681,7 +677,7 @@ pestana_buscar, pestana_calendario, pestana_agregar = st.tabs([
     "➕ Agregar Canción",
 ])
 
-# --- PESTAÑA 1: BUSCADOR ---
+# --- PESTAÑA 1: BUSCADOR CON ENTRADA DE TEXTO DIRECTA PARA TECLADO MÓVIL ---
 with pestana_buscar:
     st.subheader("🔍 Buscador de Canciones")
 
@@ -690,64 +686,83 @@ with pestana_buscar:
     )
 
     if titulos_reales:
-        cancion_seleccionada = st.selectbox(
+        busqueda_texto = st.text_input(
             "Escribe el nombre de la canción:",
-            options=titulos_reales,
-            index=0,
-            key="select_cancion_unica",
+            placeholder="Ej: Cuerdas de Amor...",
+            key="input_busqueda_movil"
         )
+
+        if busqueda_texto.strip():
+            coincidencias = [
+                t for t in titulos_reales 
+                if busqueda_texto.lower().strip() in t.lower()
+            ]
+        else:
+            coincidencias = titulos_reales
+
+        if coincidencias:
+            cancion_seleccionada = st.selectbox(
+                "Selecciona de las coincidencias:",
+                options=coincidencias,
+                index=0,
+                key="select_cancion_filtrada",
+            )
+        else:
+            st.warning("No se encontraron canciones con ese nombre.")
+            cancion_seleccionada = None
 
         st.markdown('<hr class="ios-divider">', unsafe_allow_html=True)
 
-        clave_sel = next(
-            (
-                k
-                for k, v in cancionero.items()
-                if v["titulo_real"] == cancion_seleccionada
-            ),
-            None,
-        )
-
-        if clave_sel:
-            cancion = cancionero[clave_sel]
-
-            st.markdown(f"## 🎵 {cancion['titulo_real']}")
-
-            semitonos_v = st.slider(
-                "Transponer tono en vivo (Semitonos):", -6, 6, 0
-            )
-            acordes_mostrados = transponer_texto_acordes(
-                cancion["acordes"], semitonos_v
+        if cancion_seleccionada:
+            clave_sel = next(
+                (
+                    k
+                    for k, v in cancionero.items()
+                    if v["titulo_real"] == cancion_seleccionada
+                ),
+                None,
             )
 
-            renderizar_bloques_color(acordes_mostrados, instrumento_seleccionado)
+            if clave_sel:
+                cancion = cancionero[clave_sel]
 
-            with st.expander("🛠️ Editar datos o acordes"):
-                edit_titulo = st.text_input(
-                    "Título:", value=cancion["titulo_real"]
+                st.markdown(f"## 🎵 {cancion['titulo_real']}")
+
+                semitonos_v = st.slider(
+                    "Transponer tono en vivo (Semitonos):", -6, 6, 0
                 )
-                edit_acordes = st.text_area(
-                    "Acordes:", value=cancion["acordes"], height=150
+                acordes_mostrados = transponer_texto_acordes(
+                    cancion["acordes"], semitonos_v
                 )
 
-                col_s, col_d = st.columns(2)
-                with col_s:
-                    if st.button("💾 Guardar Cambios"):
-                        cancionero[clave_sel]["titulo_real"] = (
-                            edit_titulo.strip()
-                        )
-                        cancionero[clave_sel]["acordes"] = edit_acordes.strip()
-                        db["canciones"] = cancionero
-                        if guardar_datos_nube(db):
-                            st.success("¡Canción actualizada!")
-                            st.rerun()
-                with col_d:
-                    if st.button("🗑️ Eliminar Canción"):
-                        del cancionero[clave_sel]
-                        db["canciones"] = cancionero
-                        if guardar_datos_nube(db):
-                            st.success("Canción eliminada.")
-                            st.rerun()
+                renderizar_bloques_color(acordes_mostrados, instrumento_seleccionado)
+
+                with st.expander("🛠️ Editar datos o acordes"):
+                    edit_titulo = st.text_input(
+                        "Título:", value=cancion["titulo_real"]
+                    )
+                    edit_acordes = st.text_area(
+                        "Acordes:", value=cancion["acordes"], height=150
+                    )
+
+                    col_s, col_d = st.columns(2)
+                    with col_s:
+                        if st.button("💾 Guardar Cambios"):
+                            cancionero[clave_sel]["titulo_real"] = (
+                                edit_titulo.strip()
+                            )
+                            cancionero[clave_sel]["acordes"] = edit_acordes.strip()
+                            db["canciones"] = cancionero
+                            if guardar_datos_nube(db):
+                                st.success("¡Canción actualizada!")
+                                st.rerun()
+                    with col_d:
+                        if st.button("🗑️ Eliminar Canción"):
+                            del cancionero[clave_sel]
+                            db["canciones"] = cancionero
+                            if guardar_datos_nube(db):
+                                st.success("Canción eliminada.")
+                                st.rerun()
     else:
         st.info("No hay canciones disponibles en el cancionero.")
 
