@@ -905,16 +905,33 @@ with pestana_agregar:
             key="select_tonalidad_manual"
         )
 
-        st.markdown("**Acordes armónicos de la escala (Haz clic para insertar):**")
+        st.markdown("**Acordes armónicos de la escala (Desliza horizontalmente ↔️):**")
         
-        # Contenedor con Scroll Horizontal
+        # CSS inyectado para forzar Scroll Horizontal Táctil en dispositivos móviles
+        st.markdown("""
+            <style>
+            div[data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                padding-bottom: 10px !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+            div[data-testid="stHorizontalBlock"] > div {
+                min-width: 85px !important;
+                flex: 0 0 auto !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        # Renderizado de botones horizontales con ancho fijo
         acordes_escala = ESCALAS_ARMONICAS[tonalidad_seleccionada]
         cols = st.columns(len(acordes_escala))
         
         for idx, acorde in enumerate(acordes_escala):
             with cols[idx]:
                 if st.button(acorde, key=f"btn_acorde_ins_{acorde}_{idx}"):
-                    # Inserción del acorde al campo de texto
                     if st.session_state.manual_acordes_text and not st.session_state.manual_acordes_text.endswith(" "):
                         st.session_state.manual_acordes_text += f" {acorde} "
                     else:
