@@ -178,7 +178,6 @@ def cargar_datos_nube():
 
 
 def guardar_datos_nube(datos):
-    # Protección extra para evitar sobreescribir con estructura vacía
     if not datos or "canciones" not in datos:
         st.error("Protección activada: Estructura de datos no válida. Cancelando guardado.")
         return False
@@ -198,7 +197,7 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. DICCIONARIO DE ACORDES
+# 4. DICCIONARIO DE ACORDES Y ESCALAS
 DICCIONARIO_ACORDES = {
     # C / C# / Db
     "C": {"raiz": "C", "tipo": "maj", "guitarra": ["X", 3, 2, 0, 1, 0], "dedos": ["", "3", "2", "", "1", ""], "barra": None},
@@ -247,6 +246,21 @@ DICCIONARIO_ACORDES = {
     # B
     "B": {"raiz": "B", "tipo": "maj", "guitarra": ["X", 2, 4, 4, 4, 2], "dedos": ["", "1", "2", "3", "4", "1"], "barra": {"traste": 2, "desde": 1, "hasta": 5}},
     "Bm": {"raiz": "B", "tipo": "m", "guitarra": ["X", 2, 4, 4, 3, 2], "dedos": ["", "1", "3", "4", "2", "1"], "barra": {"traste": 2, "desde": 1, "hasta": 5}},
+}
+
+ESCALAS_ARMONICAS = {
+    "C": ["C", "Dm", "Em", "F", "G", "Am", "Bdim", "C/E", "Gsus4"],
+    "C# / Db": ["C#", "D#m", "E#m", "F#", "G#", "A#m", "C#m", "G#/C"],
+    "D": ["D", "Em", "F#m", "G", "A", "Bm", "C#dim", "D/F#", "Asus4"],
+    "D# / Eb": ["Eb", "Fm", "Gm", "Ab", "Bb", "Cm", "Ddim", "Eb/G", "Bbsus4"],
+    "E": ["E", "F#m", "G#m", "A", "B", "C#m", "D#dim", "E/G#", "Bsus4"],
+    "F": ["F", "Gm", "Am", "Bb", "C", "Dm", "Edim", "F/A", "Csus4"],
+    "F# / Gb": ["F#", "G#m", "A#m", "B", "C#", "D#m", "E#dim", "F#/A#"],
+    "G": ["G", "Am", "Bm", "C", "D", "Em", "F#dim", "G/B", "Dsus4"],
+    "G# / Ab": ["Ab", "Bbm", "Cm", "Db", "Eb", "Fm", "Gdim", "Ab/C"],
+    "A": ["A", "Bm", "C#m", "D", "E", "F#m", "G#dim", "A/C#", "Esus4"],
+    "A# / Bb": ["Bb", "Cm", "Dm", "Eb", "F", "Gm", "Adim", "Bb/D", "Fsus4"],
+    "B": ["B", "C#m", "D#m", "E", "F#", "G#m", "A#dim", "B/D#", "F#sus4"],
 }
 
 SEMITONOS_NOTAS = {
@@ -878,15 +892,45 @@ with pestana_agregar:
     )
 
     if metodo == "Escribir manualmente":
+        # Inicialización de estado para la entrada manual
+        if "manual_acordes_text" not in st.session_state:
+            st.session_state.manual_acordes_text = ""
+
         nuevo_titulo = st.text_input("Título de la canción:")
+        
+        # Selección de tonalidad previa
+        tonalidad_seleccionada = st.selectbox(
+            "🎼 Selecciona la Tonalidad de la canción:",
+            list(ESCALAS_ARMONICAS.keys()),
+            key="select_tonalidad_manual"
+        )
+
+        st.markdown("**Acordes armónicos de la escala (Haz clic para insertar):**")
+        
+        # Contenedor con Scroll Horizontal
+        acordes_escala = ESCALAS_ARMONICAS[tonalidad_seleccionada]
+        cols = st.columns(len(acordes_escala))
+        
+        for idx, acorde in enumerate(acordes_escala):
+            with cols[idx]:
+                if st.button(acorde, key=f"btn_acorde_ins_{acorde}_{idx}"):
+                    # Inserción del acorde al campo de texto
+                    if st.session_state.manual_acordes_text and not st.session_state.manual_acordes_text.endswith(" "):
+                        st.session_state.manual_acordes_text += f" {acorde} "
+                    else:
+                        st.session_state.manual_acordes_text += f"{acorde} "
+                    st.rerun()
+
         nuevos_acordes = st.text_area(
             "Estructura y acordes:",
+            key="manual_acordes_text",
+            height=200,
             placeholder="Intro // G D //\nEstrofa // G C D //",
         )
 
         texto_btn_guardar = "⌛ Guardando en la nube..." if st.session_state.guardando_cancion else "💾 Guardar Canción"
         
-        if st.button(texto_btn_guardar, disabled=st.session_state.guardando_cancion):
+        if st.button(texto_btn_guardar, disabled=st.session_state.guardando_cancion, key="btn_guardar_manual"):
             if nuevo_titulo and nuevos_acordes:
                 st.session_state.guardando_cancion = True
                 st.rerun()
@@ -913,6 +957,7 @@ with pestana_agregar:
             st.session_state.guardando_cancion = False
             
             if exito:
+                st.session_state.manual_acordes_text = ""
                 st.success("¡Canción guardada exitosamente!")
                 st.rerun()
             else:
