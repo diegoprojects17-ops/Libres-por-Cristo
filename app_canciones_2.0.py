@@ -6,10 +6,34 @@ import urllib.parse
 from PIL import Image
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 # 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS LIQUID GLASS + TOOLTIPS
 st.set_page_config(
     page_title="Libres por Cristo - iOS 18", page_icon="🎹", layout="centered"
+)
+
+# Solución para habilitar el teclado táctil en teléfonos móviles para selectbox y multiselect
+components.html(
+    """
+    <script>
+    function enableMobileKeyboard() {
+        const inputs = parent.document.querySelectorAll('div[data-baseweb="select"] input');
+        inputs.forEach(input => {
+            input.removeAttribute('readonly');
+            input.removeAttribute('inputmode');
+            input.setAttribute('inputmode', 'search');
+        });
+    }
+    
+    // Ejecución inicial y observador de cambios en el DOM
+    enableMobileKeyboard();
+    const observer = new MutationObserver(enableMobileKeyboard);
+    observer.observe(parent.document.body, { childList: true, subtree: true });
+    </script>
+    """,
+    height=0,
+    width=0,
 )
 
 # Estilos CSS iOS 18 Liquid Glass y Tooltips Interactivos para Acordes
@@ -21,6 +45,12 @@ st.markdown(
         background: radial-gradient(circle at 50% 0%, #1f2937 0%, #0b0f17 100%) !important;
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
         color: #f3f4f6;
+    }
+
+    /* Corrección táctil para inputs de desplegables en móviles */
+    div[data-baseweb="select"] input {
+        -webkit-user-select: text !important;
+        user-select: text !important;
     }
 
     /* Tarjetas Liquid Glass */
