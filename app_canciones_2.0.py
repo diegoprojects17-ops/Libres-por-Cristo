@@ -420,7 +420,6 @@ def transponer_texto_acordes(texto, semitonos):
     return "\n".join(lineas_transp)
 
 
-# DETECCIÓN DE TONALIDAD CORREGIDA
 def detectar_tono_principal(texto_acordes):
     if not texto_acordes:
         return "N/A"
@@ -896,7 +895,44 @@ with pestana_agregar:
         if "manual_acordes_text" not in st.session_state:
             st.session_state.manual_acordes_text = ""
 
-        nuevo_titulo = st.text_input("Título de la canción:")
+        # PROCESO DE GUARDADO: Se ejecuta ANTES de instanciar los widgets para evitar StreamlitWidgetAlreadyInstantiatedError
+        if st.session_state.guardando_cancion:
+            nuevo_titulo_temp = st.session_state.get("pending_titulo", "")
+            nuevos_acordes_temp = st.session_state.manual_acordes_text
+
+            if nuevo_titulo_temp and nuevos_acordes_temp:
+                clave_nueva = (
+                    nuevo_titulo_temp.lower()
+                    .strip()
+                    .replace("á", "a")
+                    .replace("é", "e")
+                    .replace("í", "i")
+                    .replace("ó", "o")
+                    .replace("ú", "u")
+                )
+                cancionero[clave_nueva] = {
+                    "titulo_real": nuevo_titulo_temp.strip(),
+                    "acordes": nuevos_acordes_temp.strip(),
+                }
+                db["canciones"] = cancionero
+                
+                with st.spinner("Guardando canción en la nube..."):
+                    exito = guardar_datos_nube(db)
+                
+                st.session_state.guardando_cancion = False
+                
+                if exito:
+                    # Se limpia el estado antes de renderizar el text_area
+                    st.session_state.manual_acordes_text = ""
+                    if "pending_titulo" in st.session_state:
+                        del st.session_state["pending_titulo"]
+                    st.success("¡Canción guardada exitosamente!")
+                    st.rerun()
+                else:
+                    st.error("Error al guardar en la nube. Intenta de nuevo.")
+
+        # DIBUJO DE INTERFAZ
+        nuevo_titulo = st.text_input("Título de la canción:", key="input_nuevo_titulo")
         
         # Selección de tonalidad previa
         tonalidad_seleccionada = st.selectbox(
@@ -925,7 +961,7 @@ with pestana_agregar:
             </style>
         """, unsafe_allow_html=True)
         
-        # Renderizado de botones horizontales con ancho fijo
+        # Renderizado de botones horizontales
         acordes_escala = ESCALAS_ARMONICAS[tonalidad_seleccionada]
         cols = st.columns(len(acordes_escala))
         
@@ -949,36 +985,11 @@ with pestana_agregar:
         
         if st.button(texto_btn_guardar, disabled=st.session_state.guardando_cancion, key="btn_guardar_manual"):
             if nuevo_titulo and nuevos_acordes:
+                st.session_state.pending_titulo = nuevo_titulo
                 st.session_state.guardando_cancion = True
                 st.rerun()
-
-        if st.session_state.guardando_cancion and nuevo_titulo and nuevos_acordes:
-            clave_nueva = (
-                nuevo_titulo.lower()
-                .strip()
-                .replace("á", "a")
-                .replace("é", "e")
-                .replace("í", "i")
-                .replace("ó", "o")
-                .replace("ú", "u")
-            )
-            cancionero[clave_nueva] = {
-                "titulo_real": nuevo_titulo.strip(),
-                "acordes": nuevos_acordes.strip(),
-            }
-            db["canciones"] = cancionero
-            
-            with st.spinner("Guardando canción en JSONBin..."):
-                exito = guardar_datos_nube(db)
-            
-            st.session_state.guardando_cancion = False
-            
-            if exito:
-                st.session_state.manual_acordes_text = ""
-                st.success("¡Canción guardada exitosamente!")
-                st.rerun()
             else:
-                st.error("Error al guardar. Intenta de nuevo.")
+                st.warning("Escribe un título y la estructura de acordes antes de guardar.")
 
     elif metodo == "Pegar Link Directo de Cifra Club 🎸":
         url_directa = st.text_input(
