@@ -99,7 +99,7 @@ st.markdown(
         border: 1px solid rgba(255, 255, 255, 0.3);
     }
 
-    /* ESTILOS CORREGIDOS: LETRAS EN BLANCO Y SIN AZUL FORZADO */
+    /* ESTILOS DE ACORDES E INTERACTIVIDAD */
     .chord-item {
         position: relative;
         display: inline-block;
@@ -140,6 +140,26 @@ st.markdown(
         visibility: visible;
         opacity: 1;
         transform: translateX(-50%) translateY(0);
+    }
+
+    /* PANEL MODAL ESTILO ON STAGE */
+    .onstage-modal {
+        background: #121824;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 20px;
+        padding: 18px;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    }
+    .onstage-title {
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 16px;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     </style>
     """,
@@ -197,7 +217,7 @@ def guardar_datos_nube(datos):
         return False
 
 
-# 4. DICCIONARIO DE ACORDES Y ESCALAS
+# 4. DICCIONARIO DE ACORDES Y ESCALAS EXTENDIDAS (MAYORES Y MENORES)
 DICCIONARIO_ACORDES = {
     # C / C# / Db
     "C": {"raiz": "C", "tipo": "maj", "guitarra": ["X", 3, 2, 0, 1, 0], "dedos": ["", "3", "2", "", "1", ""], "barra": None},
@@ -249,18 +269,43 @@ DICCIONARIO_ACORDES = {
 }
 
 ESCALAS_ARMONICAS = {
-    "C": ["C", "Dm", "Em", "F", "G", "Am", "Bdim", "C/E", "Gsus4"],
-    "C# / Db": ["C#", "D#m", "E#m", "F#", "G#", "A#m", "C#m", "G#/C"],
-    "D": ["D", "Em", "F#m", "G", "A", "Bm", "C#dim", "D/F#", "Asus4"],
-    "D# / Eb": ["Eb", "Fm", "Gm", "Ab", "Bb", "Cm", "Ddim", "Eb/G", "Bbsus4"],
-    "E": ["E", "F#m", "G#m", "A", "B", "C#m", "D#dim", "E/G#", "Bsus4"],
-    "F": ["F", "Gm", "Am", "Bb", "C", "Dm", "Edim", "F/A", "Csus4"],
-    "F# / Gb": ["F#", "G#m", "A#m", "B", "C#", "D#m", "E#dim", "F#/A#"],
-    "G": ["G", "Am", "Bm", "C", "D", "Em", "F#dim", "G/B", "Dsus4"],
-    "G# / Ab": ["Ab", "Bbm", "Cm", "Db", "Eb", "Fm", "Gdim", "Ab/C"],
-    "A": ["A", "Bm", "C#m", "D", "E", "F#m", "G#dim", "A/C#", "Esus4"],
-    "A# / Bb": ["Bb", "Cm", "Dm", "Eb", "F", "Gm", "Adim", "Bb/D", "Fsus4"],
-    "B": ["B", "C#m", "D#m", "E", "F#", "G#m", "A#dim", "B/D#", "F#sus4"],
+    # --- ESCALAS MAYORES ---
+    "C": ["C", "Dm", "Em", "F", "G", "Am", "Bdim"],
+    "C#": ["C#", "D#m", "E#m", "F#", "G#", "A#m", "B#dim"],
+    "Db": ["Db", "Ebm", "Fm", "Gb", "Ab", "Bbm", "Cdim"],
+    "D": ["D", "Em", "F#m", "G", "A", "Bm", "C#dim"],
+    "D#": ["D#", "E#m", "F##m", "G#", "A#", "B#m", "C##dim"],
+    "Eb": ["Eb", "Fm", "Gm", "Ab", "Bb", "Cm", "Ddim"],
+    "E": ["E", "F#m", "G#m", "A", "B", "C#m", "D#dim"],
+    "F": ["F", "Gm", "Am", "Bb", "C", "Dm", "Edim"],
+    "F#": ["F#", "G#m", "A#m", "B", "C#", "D#m", "E#dim"],
+    "Gb": ["Gb", "Abm", "Bbm", "Cb", "Db", "Ebm", "Fdim"],
+    "G": ["G", "Am", "Bm", "C", "D", "Em", "F#dim"],
+    "G#": ["G#", "A#m", "B#m", "C#", "D#", "E#m", "F##dim"],
+    "Ab": ["Ab", "Bbm", "Cm", "Db", "Eb", "Fm", "Gdim"],
+    "A": ["A", "Bm", "C#m", "D", "E", "F#m", "G#dim"],
+    "A#": ["A#", "B#m", "C##m", "D#", "E#", "F##m", "G##dim"],
+    "Bb": ["Bb", "Cm", "Dm", "Eb", "F", "Gm", "Adim"],
+    "B": ["B", "C#m", "D#m", "E", "F#", "G#m", "A#dim"],
+
+    # --- ESCALAS MENORES ---
+    "Cm": ["Cm", "Ddim", "Eb", "Fm", "Gm", "Ab", "Bb"],
+    "C#m": ["C#m", "D#dim", "E", "F#m", "G#m", "A", "B"],
+    "Dbm": ["Dbm", "Ebdim", "Fb", "Gbm", "Abm", "Bbb", "Cb"],
+    "Dm": ["Dm", "Edim", "F", "Gm", "Am", "Bb", "C"],
+    "D#m": ["D#m", "E#dim", "F#", "G#m", "A#m", "B", "C#"],
+    "Ebm": ["Ebm", "Fdim", "Gb", "Abm", "Bbm", "Cb", "Db"],
+    "Em": ["Em", "F#dim", "G", "Am", "Bm", "C", "D"],
+    "Fm": ["Fm", "Gdim", "Ab", "Bbm", "Cm", "Db", "Eb"],
+    "F#m": ["F#m", "G#dim", "A", "Bm", "C#m", "D", "E"],
+    "Gbm": ["Gbm", "Abdim", "Bbb", "Cbm", "Dbm", "Ebb", "Fb"],
+    "Gm": ["Gm", "Adim", "Bb", "Cm", "Dm", "Eb", "F"],
+    "G#m": ["G#m", "A#dim", "B", "C#m", "D#m", "E", "F#"],
+    "Abm": ["Abm", "Bbdim", "Cb", "Dbm", "Ebm", "Fb", "Gb"],
+    "Am": ["Am", "Bdim", "C", "Dm", "Em", "F", "G"],
+    "A#m": ["A#m", "B#dim", "C#", "D#m", "E#m", "F#", "G#"],
+    "Bbm": ["Bbm", "Cdim", "Db", "Ebm", "Fm", "Gb", "Ab"],
+    "Bm": ["Bm", "C#dim", "D", "Em", "F#m", "G", "A"],
 }
 
 SEMITONOS_NOTAS = {
@@ -891,11 +936,17 @@ with pestana_agregar:
     )
 
     if metodo == "Escribir manualmente":
-        # Inicialización de estado para la entrada manual
+        # Variables de estado para el selector modal de tonalidad (Estilo On Stage)
+        if "sel_nota" not in st.session_state:
+            st.session_state.sel_nota = "C"
+        if "sel_alt" not in st.session_state:
+            st.session_state.sel_alt = ""  # "", "b", "#"
+        if "sel_modo" not in st.session_state:
+            st.session_state.sel_modo = "Maj"  # "Maj" o "min"
         if "manual_acordes_text" not in st.session_state:
             st.session_state.manual_acordes_text = ""
 
-        # PROCESO DE GUARDADO: Se ejecuta ANTES de instanciar los widgets para evitar StreamlitWidgetAlreadyInstantiatedError
+        # Lógica de guardado previo
         if st.session_state.guardando_cancion:
             nuevo_titulo_temp = st.session_state.get("pending_titulo", "")
             nuevos_acordes_temp = st.session_state.manual_acordes_text
@@ -915,14 +966,13 @@ with pestana_agregar:
                     "acordes": nuevos_acordes_temp.strip(),
                 }
                 db["canciones"] = cancionero
-                
+
                 with st.spinner("Guardando canción en la nube..."):
                     exito = guardar_datos_nube(db)
-                
+
                 st.session_state.guardando_cancion = False
-                
+
                 if exito:
-                    # Se limpia el estado antes de renderizar el text_area
                     st.session_state.manual_acordes_text = ""
                     if "pending_titulo" in st.session_state:
                         del st.session_state["pending_titulo"]
@@ -931,20 +981,67 @@ with pestana_agregar:
                 else:
                     st.error("Error al guardar en la nube. Intenta de nuevo.")
 
-        # DIBUJO DE INTERFAZ
+        # Campo Título
         nuevo_titulo = st.text_input("Título de la canción:", key="input_nuevo_titulo")
-        
-        # Selección de tonalidad previa
-        tonalidad_seleccionada = st.selectbox(
-            "🎼 Selecciona la Tonalidad de la canción:",
-            list(ESCALAS_ARMONICAS.keys()),
-            key="select_tonalidad_manual"
+
+        # Construcción dinámica de la tonalidad
+        modo_suffix = "m" if st.session_state.sel_modo == "min" else ""
+        tonalidad_calculada = f"{st.session_state.sel_nota}{st.session_state.sel_alt}{modo_suffix}"
+
+        # Modal Bottom Sheet estilo On Stage
+        st.markdown('<div class="onstage-modal">', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="onstage-title">✕ &nbsp; Establecer tonalidad original: <span style="color: #38bdf8; font-size: 18px;">{tonalidad_calculada}</span></div>',
+            unsafe_allow_html=True,
         )
 
+        # Fila 1: Notas Raíz (C, D, E, F, G, A, B)
+        cols_notas = st.columns(7)
+        notas_lista = ["C", "D", "E", "F", "G", "A", "B"]
+        for idx, n in enumerate(notas_lista):
+            with cols_notas[idx]:
+                es_activa = (st.session_state.sel_nota == n)
+                label_n = f"• {n} •" if es_activa else n
+                if st.button(label_n, key=f"btn_nota_{n}"):
+                    st.session_state.sel_nota = n
+                    st.rerun()
+
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+
+        # Fila 2: Alteraciones (b, #) y Modos (Maj, min)
+        c_b, c_sharp, c_space, c_maj, c_min = st.columns([1, 1, 1, 2, 2])
+
+        with c_b:
+            lbl_b = "✓ b" if st.session_state.sel_alt == "b" else "b"
+            if st.button(lbl_b, key="btn_alt_b"):
+                st.session_state.sel_alt = "" if st.session_state.sel_alt == "b" else "b"
+                st.rerun()
+
+        with c_sharp:
+            lbl_sharp = "✓ #" if st.session_state.sel_alt == "#" else "#"
+            if st.button(lbl_sharp, key="btn_alt_sharp"):
+                st.session_state.sel_alt = "" if st.session_state.sel_alt == "#" else "#"
+                st.rerun()
+
+        with c_maj:
+            lbl_maj = "🔵 Maj" if st.session_state.sel_modo == "Maj" else "Maj"
+            if st.button(lbl_maj, key="btn_modo_maj"):
+                st.session_state.sel_modo = "Maj"
+                st.rerun()
+
+        with c_min:
+            lbl_min = "🔵 min" if st.session_state.sel_modo == "min" else "min"
+            if st.button(lbl_min, key="btn_modo_min"):
+                st.session_state.sel_modo = "min"
+                st.rerun()
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Acordes de la Escala Armónica resultante (Deslizable)
         st.markdown("**Acordes armónicos de la escala (Desliza horizontalmente ↔️):**")
-        
-        # CSS inyectado para forzar Scroll Horizontal Táctil en dispositivos móviles
-        st.markdown("""
+
+        st.markdown(
+            """
             <style>
             div[data-testid="stHorizontalBlock"] {
                 display: flex !important;
@@ -959,14 +1056,17 @@ with pestana_agregar:
                 flex: 0 0 auto !important;
             }
             </style>
-        """, unsafe_allow_html=True)
-        
-        # Renderizado de botones horizontales
-        acordes_escala = ESCALAS_ARMONICAS[tonalidad_seleccionada]
-        cols = st.columns(len(acordes_escala))
-        
+            """,
+            unsafe_allow_html=True,
+        )
+
+        acordes_escala = ESCALAS_ARMONICAS.get(
+            tonalidad_calculada, ["C", "Dm", "Em", "F", "G", "Am", "Bdim"]
+        )
+        cols_acordes = st.columns(len(acordes_escala))
+
         for idx, acorde in enumerate(acordes_escala):
-            with cols[idx]:
+            with cols_acordes[idx]:
                 if st.button(acorde, key=f"btn_acorde_ins_{acorde}_{idx}"):
                     if st.session_state.manual_acordes_text and not st.session_state.manual_acordes_text.endswith(" "):
                         st.session_state.manual_acordes_text += f" {acorde} "
@@ -974,6 +1074,7 @@ with pestana_agregar:
                         st.session_state.manual_acordes_text += f"{acorde} "
                     st.rerun()
 
+        # Entrada de Texto para Estructura
         nuevos_acordes = st.text_area(
             "Estructura y acordes:",
             key="manual_acordes_text",
@@ -981,15 +1082,25 @@ with pestana_agregar:
             placeholder="Intro // G D //\nEstrofa // G C D //",
         )
 
-        texto_btn_guardar = "⌛ Guardando en la nube..." if st.session_state.guardando_cancion else "💾 Guardar Canción"
-        
-        if st.button(texto_btn_guardar, disabled=st.session_state.guardando_cancion, key="btn_guardar_manual"):
+        texto_btn_guardar = (
+            "⌛ Guardando en la nube..."
+            if st.session_state.guardando_cancion
+            else "💾 Guardar Canción"
+        )
+
+        if st.button(
+            texto_btn_guardar,
+            disabled=st.session_state.guardando_cancion,
+            key="btn_guardar_manual",
+        ):
             if nuevo_titulo and nuevos_acordes:
                 st.session_state.pending_titulo = nuevo_titulo
                 st.session_state.guardando_cancion = True
                 st.rerun()
             else:
-                st.warning("Escribe un título y la estructura de acordes antes de guardar.")
+                st.warning(
+                    "Escribe un título y la estructura de acordes antes de guardar."
+                )
 
     elif metodo == "Pegar Link Directo de Cifra Club 🎸":
         url_directa = st.text_input(
