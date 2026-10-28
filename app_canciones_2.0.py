@@ -157,11 +157,11 @@ URL_JSONBIN = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
 HEADERS = {"Content-Type": "application/json", "X-Master-Key": MASTER_KEY}
 
 
-# 3. FUNCIONES EN LA NUBE
-@st.cache_data(ttl=5)
+# 3. FUNCIONES EN LA NUBE (Optimizadas para preservar el historial del calendario sin límites)
+@st.cache_data(ttl=2)
 def cargar_datos_nube():
     try:
-        respuesta = requests.get(URL_JSONBIN, headers=HEADERS)
+        respuesta = requests.get(f"{URL_JSONBIN}/latest", headers=HEADERS)
         if respuesta.status_code == 200:
             record = respuesta.json()["record"]
             if "canciones" not in record:
@@ -178,10 +178,23 @@ def cargar_datos_nube():
 
 
 def guardar_datos_nube(datos):
-    if not datos or "canciones" not in datos:
+    if not datos or "canciones" not in datos or "calendario" not in datos:
         st.error("Protección activada: Estructura de datos no válida. Cancelando guardado.")
         return False
     try:
+        # Garantizamos fusionar con la versión más reciente en la nube antes de guardar
+        res_actual = requests.get(f"{URL_JSONBIN}/latest", headers=HEADERS)
+        if res_actual.status_code == 200:
+            record_nube = res_actual.json()["record"]
+            cal_nube = record_nube.get("calendario", {})
+            # Preservar todas las fechas existentes en la nube
+            cal_nube.update(datos["calendario"])
+            datos["calendario"] = cal_nube
+
+            canciones_nube = record_nube.get("canciones", {})
+            canciones_nube.update(datos["canciones"])
+            datos["canciones"] = canciones_nube
+
         respuesta = requests.put(URL_JSONBIN, json=datos, headers=HEADERS)
         if respuesta.status_code == 200:
             st.cache_data.clear()
@@ -895,7 +908,7 @@ with pestana_agregar:
         if "manual_acordes_text" not in st.session_state:
             st.session_state.manual_acordes_text = ""
 
-        # PROCESO DE GUARDADO: Se ejecuta ANTES de instanciar los widgets para evitar StreamlitWidgetAlreadyInstantiatedError
+        # PROCESO DE GUARDADO
         if st.session_state.guardando_cancion:
             nuevo_titulo_temp = st.session_state.get("pending_titulo", "")
             nuevos_acordes_temp = st.session_state.manual_acordes_text
@@ -922,7 +935,6 @@ with pestana_agregar:
                 st.session_state.guardando_cancion = False
                 
                 if exito:
-                    # Se limpia el estado antes de renderizar el text_area
                     st.session_state.manual_acordes_text = ""
                     if "pending_titulo" in st.session_state:
                         del st.session_state["pending_titulo"]
@@ -969,184 +981,4 @@ with pestana_agregar:
             with cols[idx]:
                 if st.button(acorde, key=f"btn_acorde_ins_{acorde}_{idx}"):
                     if st.session_state.manual_acordes_text and not st.session_state.manual_acordes_text.endswith(" "):
-                        st.session_state.manual_acordes_text += f" {acorde} "
-                    else:
-                        st.session_state.manual_acordes_text += f"{acorde} "
-                    st.rerun()
-
-        nuevos_acordes = st.text_area(
-            "Estructura y acordes:",
-            key="manual_acordes_text",
-            height=200,
-            placeholder="Intro // G D //\nEstrofa // G C D //",
-        )
-
-        texto_btn_guardar = "⌛ Guardando en la nube..." if st.session_state.guardando_cancion else "💾 Guardar Canción"
-        
-        if st.button(texto_btn_guardar, disabled=st.session_state.guardando_cancion, key="btn_guardar_manual"):
-            if nuevo_titulo and nuevos_acordes:
-                st.session_state.pending_titulo = nuevo_titulo
-                st.session_state.guardando_cancion = True
-                st.rerun()
-            else:
-                st.warning("Escribe un título y la estructura de acordes antes de guardar.")
-
-    elif metodo == "Pegar Link Directo de Cifra Club 🎸":
-        url_directa = st.text_input(
-            "Link de Cifra Club:",
-            placeholder="https://www.cifraclub.com/marcos-witt/cuan-grande-es-el/",
-        )
-
-        if st.button("📥 Importar desde Cifra Club"):
-            if url_directa:
-                st.session_state["url_cifra_seleccionada"] = url_directa
-            else:
-                st.error("Ingresa una URL válida.")
-
-        if "url_cifra_seleccionada" in st.session_state:
-            st.write("---")
-            semitonos_dict = {
-                "Tono Original": 0,
-                "+1 Semitono": 1,
-                "+2 Semitonos": 2,
-                "+3 Semitonos": 3,
-                "-1 Semitono": -1,
-                "-2 Semitonos": -2,
-            }
-            opcion_trans = st.selectbox(
-                "Transposición:", list(semitonos_dict.keys())
-            )
-            semitonos = semitonos_dict[opcion_trans]
-
-            if st.button("✨ Extraer y Procesar Estructura"):
-                with st.spinner("Analizando bloques y acordes..."):
-                    try:
-                        from bs4 import BeautifulSoup
-
-                        res = requests.get(
-                            st.session_state["url_cifra_seleccionada"],
-                            headers={
-                                "User-Agent": (
-                                    "Mozilla/5.0 (Windows NT 10.0; Win64;"
-                                    " x64) Chrome/120.0.0.0 Safari/537.36"
-                                )
-                            },
-                        )
-                        soup = BeautifulSoup(res.text, "html.parser")
-
-                        titulo_elem = soup.find("h1", class_="t1") or soup.find("h1")
-                        titulo_real = (
-                            titulo_elem.get_text(strip=True)
-                            if titulo_elem
-                            else "Nueva Canción"
-                        )
-
-                        cifra_pre = soup.find("pre")
-                        texto_resumido = cifra_pre.get_text() if cifra_pre else ""
-
-                        if texto_resumido:
-                            texto_transp = transponer_texto_acordes(
-                                texto_resumido, semitonos
-                            )
-                            st.session_state["temp_titulo"] = titulo_real
-                            st.session_state["temp_acordes"] = texto_transp
-                            st.success("¡Estructura extraída exitosamente!")
-                            del st.session_state["url_cifra_seleccionada"]
-                            st.rerun()
-                        else:
-                            st.error("No se pudo identificar la estructura.")
-                    except Exception as e:
-                        st.error(f"Error al procesar la URL: {e}")
-
-    elif metodo == "Tomar una foto / Cargar Imagen 📸":
-        foto = st.file_uploader(
-            "Cargar imagen de la partitura / cifrado:",
-            type=["jpg", "jpeg", "png"],
-        )
-        if foto is not None:
-            st.image(Image.open(foto), caption="Imagen cargada", width=250)
-            if st.button("🪄 Digitalizar con OCR"):
-                with st.spinner("Escaneando texto..."):
-                    try:
-                        foto.seek(0)
-                        files = {
-                            "file": (foto.name, foto.getvalue(), foto.type)
-                        }
-                        payload = {
-                            "apikey": OCR_KEY,
-                            "language": "spa",
-                            "OCREngine": "2",
-                        }
-                        respuesta = requests.post(
-                            "https://api.ocr.space/parse/image",
-                            files=files,
-                            data=payload,
-                            timeout=20,
-                        )
-                        resultado = respuesta.json()
-
-                        if (
-                            resultado.get("OCRExitCode") == 1
-                            and resultado.get("ParsedResults")
-                        ):
-                            texto = resultado["ParsedResults"][0].get(
-                                "ParsedText", ""
-                            )
-                            lineas = [
-                                l.strip() for l in texto.split("\n") if l.strip()
-                            ]
-                            st.session_state["temp_titulo"] = (
-                                lineas[0] if lineas else "Nueva Canción"
-                            )
-                            st.session_state["temp_acordes"] = "\n".join(
-                                lineas[1:]
-                            )
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Error en OCR: {e}")
-
-    if "temp_titulo" in st.session_state:
-        st.subheader("🔍 Confirmación Final:")
-        titulo_f = st.text_input(
-            "Título:", value=st.session_state["temp_titulo"]
-        )
-        acordes_f = st.text_area(
-            "Acordes Extraídos:",
-            value=st.session_state["temp_acordes"],
-            height=200,
-        )
-
-        texto_btn_definitivo = "⌛ Guardando en la nube..." if st.session_state.guardando_cancion else "💾 Guardar Definitivamente"
-
-        if st.button(texto_btn_definitivo, disabled=st.session_state.guardando_cancion, key="btn_definitivo"):
-            st.session_state.guardando_cancion = True
-            st.rerun()
-
-        if st.session_state.guardando_cancion and "temp_titulo" in st.session_state:
-            clave_nueva = (
-                titulo_f.lower()
-                .strip()
-                .replace("á", "a")
-                .replace("é", "e")
-                .replace("í", "i")
-                .replace("ó", "o")
-                .replace("ú", "u")
-            )
-            cancionero[clave_nueva] = {
-                "titulo_real": titulo_f.strip(),
-                "acordes": acordes_f.strip(),
-            }
-            db["canciones"] = cancionero
-            
-            with st.spinner("Guardando en la nube..."):
-                exito = guardar_datos_nube(db)
-
-            st.session_state.guardando_cancion = False
-
-            if exito:
-                st.success("¡Canción guardada exitosamente!")
-                del st.session_state["temp_titulo"]
-                del st.session_state["temp_acordes"]
-                st.rerun()
-            else:
-                st.error("Error al guardar en JSONBin.")
+                        st.session
